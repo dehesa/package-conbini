@@ -118,5 +118,8 @@ The following operators are actually testing subscribers. They allow easier test
 
 -   Apple's [Combine documentation](https://developer.apple.com/documentation/combine).
 -   [OpenCombine](https://github.com/broadwaylamb/OpenCombine) is an open source implementation of Apple's Combine framework.
+-   [CombineX](https://github.com/cx-org/CombineX) is an open source implementation of Apple's Combine framework.
+-   [SwiftUI-Notes](https://heckj.github.io/swiftui-notes/) is a collection of notes on Swift UI and Combine.
+-   [Combine book](https://store.raywenderlich.com/products/combine-asynchronous-programming-with-swift) is an excellent Ray Wenderlich book about the Combine framework.
 
 > The framework name references both the `Combine` framework and the helpful Japanese convenience stores 😄
