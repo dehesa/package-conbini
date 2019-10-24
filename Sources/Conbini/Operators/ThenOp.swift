@@ -1,10 +1,10 @@
 import Combine
 
 extension Publisher {
-    /// Ignores all value events and on successful completion it transform that into a give `Downstream` publisher.
+    /// Ignores all upstream value events and when it completes successfully, the operator switches to the provided publisher.
     ///
-    /// The `downstream` closure will only be executed once the successful completion event arrives. If it doesn't arrive, it is never executed.
-    /// - parameter transform: Closure generating the stream to be switched to once a completion event is received from upstream.
+    /// The `transform` closure will only be executed once the successful completion event arrives. If it doesn't arrive, it is never executed.
+    /// - parameter transform: Closure generating the stream to be switched to once a successful completion event is received from upstream.
     public func then<Child>(_ transform: @escaping ()->Child) -> Publishers.Then<Child,Self> where Child:Publisher, Self.Failure==Child.Failure {
         .init(upstream: self, transform: transform)
     }

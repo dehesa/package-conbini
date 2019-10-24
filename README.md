@@ -72,44 +72,44 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 ## Subscribers
 
-The following operators are actually testing subscribers. They allow easier testing for publisher chains making the test wait till a specific expectation is fulfilled (or making the test fail in a negative case).
+The following operators are actually testing subscribers. They allow easier testing for publisher chains making the test wait till a specific expectation is fulfilled (or making the test fail in a negative case). Furthermore, if a timeout ellapses or a expectation is not fulfilled, the affected test line will be marked _in red_ correctly in Xcode.
 
 -   `expectsCompletion` subscribes to a publisher making the running test wait for a successful completion while ignoring all emitted values.
 
     ```swift
-    publisherChain.expectsCompletion(timeout: 0.8)
+    publisherChain.expectsCompletion(timeout: 0.8, on: test)
     ```
 
 -   `expectsFailure` subscribes to a publisher making the running test wait for a failed completion while ignoring all emitted values.
 
     ```swift
-    publisherChain.expectsFailure(timeout: 0.8)
+    publisherChain.expectsFailure(timeout: 0.8, on: test)
     ```
 
 -   `expectsOne` subscribes to a publisher making the running test wait for a single value and a successful completion.
     If more than one values are emitted or the publisher fails, the subscription gets cancelled and the test fails.
 
     ```swift
-    let emittedValue = publisherChain.expectsOne(timeout: 0.8)
+    let emittedValue = publisherChain.expectsOne(timeout: 0.8, on: test)
     ```
 
 -   `expectsAll` subscribes to a publisher making the running test wait for zero or more values and a successful completion.
 
     ```swift
-    let emittedValues = publisherChain.expectsAll(timeout: 0.8)
+    let emittedValues = publisherChain.expectsAll(timeout: 0.8, on: test)
     ```
 
 -   `expectAtLeast` subscribes to a publisher making the running test wait for at least the provided amount of values.
     Once the provided amount of values is received, the publisher gets cancelled and the values are returned.
 
     ```swift
-    let emittedValues = publisherChain.expectsAtLeast(5, timeout: 0.8)
+    let emittedValues = publisherChain.expectsAtLeast(values: 5, timeout: 0.8, on: test)
     ```
 
     This operator/subscriber accepts an optional closure to check every value received.
 
     ```swift
-    let emittedValues = publisherChain.expectsAtLeast(5, timeout: 0.8) { (value) in
+    let emittedValues = publisherChain.expectsAtLeast(values: 5, timeout: 0.8, on: test) { (value) in
       XCTAssert...
     }
     ```
