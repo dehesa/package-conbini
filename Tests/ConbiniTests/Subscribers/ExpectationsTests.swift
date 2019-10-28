@@ -2,7 +2,7 @@ import XCTest
 import Combine
 import Conbini
 
-/// Tests the correct behavior of the `Complete` publisher.
+/// Tests the correct behavior of the *expectation* conveniences.
 final class ExpectationsTests: XCTestCase {
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}

@@ -2,7 +2,7 @@ import XCTest
 import Conbini
 import Combine
 
-/// Tests the correct behavior of the `Complete` publisher.
+/// Tests the correct behavior of the `DeferredValue` publisher.
 final class DeferredValueTests: XCTestCase {
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}
