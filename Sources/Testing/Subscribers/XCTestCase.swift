@@ -6,7 +6,7 @@ import Foundation
 extension XCTestCase {
     /// Locks the receiving test for `interval` seconds.
     /// - parameter interval: The number of seconds waiting (must be greater than zero).
-    public func wait(_ interval: TimeInterval) {
+    public func wait(seconds interval: TimeInterval) {
         precondition(interval > 0)
         
         let e = self.expectation(description: "Waiting for \(interval) seconds")

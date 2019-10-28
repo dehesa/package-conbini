@@ -10,9 +10,22 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 -   `then` ignores all values and executes the provided publisher once a successful completion is received.
     If a failed completion is emitted, it is forwarded downstream.
+
     ```swift
     let publisher = setConfigurationOnServer.then {
         subscribeToWebsocket.publisher
+    }
+    ```
+
+-   `result` subscribes to the receiving publisher and execute the handler when a single value followed by a successful completion is received.
+    In case of failure, the handler is executed with such failure.
+
+    ```swift
+    let cancellable = serverRequest.result { (result) in
+        switch result {
+        case .success(let value): ...
+        case .failure(let error): ...
+        }
     }
     ```
 
@@ -70,9 +83,9 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 -   `Then` provides the functionality of the `then` operator.
 
-## Subscribers
+# Testing
 
-The following operators are actually testing subscribers. They allow easier testing for publisher chains making the test wait till a specific expectation is fulfilled (or making the test fail in a negative case). Furthermore, if a timeout ellapses or a expectation is not fulfilled, the affected test line will be marked _in red_ correctly in Xcode.
+Conbini provides convenience subscribers to ease code testing. These subscribers make the test wait till a specific expectation is fulfilled (or making the test fail in a negative case). Furthermore, if a timeout ellapses or a expectation is not fulfilled, the affected test line will be marked _in red_ correctly in Xcode.
 
 -   `expectsCompletion` subscribes to a publisher making the running test wait for a successful completion while ignoring all emitted values.
 
@@ -114,12 +127,20 @@ The following operators are actually testing subscribers. They allow easier test
     }
     ```
 
-## References
+## Quirks
+
+Conbini testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
+
+-   `import Conbini` imports all code excepts the testing conveniences.
+-   `import ConbiniForTesting` imports everything.
+
+The rule of thumb is to use `import Conbini` in your regular code (e.g. within your framework or app) and write `import ConbiniForTesting` within your test target files.
+
+# References
 
 -   Apple's [Combine documentation](https://developer.apple.com/documentation/combine).
 -   [OpenCombine](https://github.com/broadwaylamb/OpenCombine) is an open source implementation of Apple's Combine framework.
 -   [CombineX](https://github.com/cx-org/CombineX) is an open source implementation of Apple's Combine framework.
--   [SwiftUI-Notes](https://heckj.github.io/swiftui-notes/) is a collection of notes on Swift UI and Combine.
 -   [Combine book](https://store.raywenderlich.com/products/combine-asynchronous-programming-with-swift) is an excellent Ray Wenderlich book about the Combine framework.
 
 > The framework name references both the `Combine` framework and the helpful Japanese convenience stores 😄
