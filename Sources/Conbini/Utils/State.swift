@@ -2,7 +2,7 @@ import Foundation
 
 /// Propperty wrapping a unfair lock and some state (only accessed through the lock).
 @propertyWrapper
-struct SubscriptionState<State> {
+internal struct SubscriptionState<State> {
     /// Performant non-rentrant unfair lock.
     private var lock: os_unfair_lock
     /// Generic variable being guarded by the lock.
