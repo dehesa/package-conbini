@@ -10,7 +10,7 @@ extension Publisher {
     /// - parameter handler: Returns the result of the publisher.
     @discardableResult
     public func result(_ handler: @escaping (Result<Output,Failure>)->Void) -> AnyCancellable? {
-        var result: Output? = nil
+        var value: Output? = nil
         var cancellable: AnyCancellable? = nil
         
         cancellable = self.sink(receiveCompletion: {
@@ -18,19 +18,19 @@ extension Publisher {
             case .failure(let error):
                 handler(.failure(error))
             case .finished:
-                if let value = result {
+                if let value = value {
                     handler(.success(value))
                 }
             }
             
-            (result, cancellable) = (nil, nil)
+            (value, cancellable) = (nil, nil)
         }, receiveValue: {
-            guard case .none = result else {
+            guard case .none = value else {
                 cancellable?.cancel()
-                (result, cancellable) = (nil, nil)
+                (value, cancellable) = (nil, nil)
                 return
             }
-            result = $0
+            value = $0
         })
         
         return cancellable
