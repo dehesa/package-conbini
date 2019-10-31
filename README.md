@@ -36,7 +36,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     [enpointA, endpointB, endpointC].publisher.sequentialFlatMap()
     ```
 
-    If the upstream emits values without regard to backpressure (e.g. `Subject`s), `sequentialFlatMap` buffers them internally; however if a completion event is sent, the values in the buffer won't be executed. To have trully sequential event handling on non-supporting backpressure upstreams, use the `buffer` operator.
+    If the upstream emits values without regard to backpressure (e.g. `Subject`s), `sequentialFlatMap` buffers them internally; however if a completion event is sent, the values in the buffer won't be executed. To have truly sequential event handling on non-supporting backpressure upstreams, use the `buffer` operator.
 
     ```swift
     let upstream = PassthroughSubject<Just<Int>,SomeError>()

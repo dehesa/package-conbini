@@ -68,7 +68,7 @@ extension Publisher {
         precondition(timeout >= 0)
         let exp = XCTestExpectation(description: description)
         
-        var result: Self.Output? = nil
+        var value: Self.Output? = nil
         var cancellable: AnyCancellable?
         cancellable = self.sink(receiveCompletion: {
             cancellable = nil
@@ -76,24 +76,29 @@ extension Publisher {
             case .failure(let e):
                 return XCTFail("The publisher completed with failure when successfull completion was expected\n\(e)\n", file: file, line: line)
             case .finished:
-                guard case .some = result else {
+                guard case .some = value else {
                     return XCTFail("The publisher completed without outputting any value", file: file, line: line)
                 }
                 exp.fulfill()
             }
         }, receiveValue: {
-            guard case .none = result else {
+            guard case .none = value else {
                 cancellable?.cancel()
                 cancellable = nil
                 return XCTFail("The publisher produced more than one value when only one was expected", file: file, line: line)
             }
-            result = $0
+            value = $0
         })
         
         let waiter = XCTWaiter(delegate: test)
         waiter.wait(for: [exp], timeout: timeout)
         cancellable?.cancel()
-        return result!
+        
+        guard let result = value else {
+            XCTFail("The publisher didn't produce any value before the timeout ellapsed", file: file, line: line)
+            fatalError(file: file, line: line)
+        }
+        return result
     }
     
     /// Expects the receiving publisher to produce zero, one, or many values and then complete within the provided timeout.
