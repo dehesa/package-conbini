@@ -1,5 +1,4 @@
 import Combine
-import Foundation
 
 extension Publisher {
     /// This operator creates a subscribers (such as the `.sink` operator) which subscribes upstream and expects a single value and a subsequent successful completion.
@@ -10,10 +9,8 @@ extension Publisher {
     /// - parameter handler: Returns the result of the publisher.
     @discardableResult
     public func result(_ handler: @escaping (Result<Output,Failure>)->Void) -> AnyCancellable? {
-        var value: Output? = nil
-        var cancellable: AnyCancellable? = nil
-        
-        cancellable = self.sink(receiveCompletion: {
+        var (value, cancellable): (Output?, AnyCancellable?) = (nil, nil)
+        let subscriber = Subscribers.Sink<Output,Failure>(receiveCompletion: {
             switch $0 {
             case .failure(let error):
                 handler(.failure(error))
@@ -33,6 +30,10 @@ extension Publisher {
             value = $0
         })
         
-        return cancellable
+        let result = AnyCancellable(subscriber)
+        cancellable = result
+        self.subscribe(subscriber)
+        
+        return result
     }
 }

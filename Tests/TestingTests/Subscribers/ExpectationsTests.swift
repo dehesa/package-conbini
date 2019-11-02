@@ -1,7 +1,7 @@
 import XCTest
-import Combine
 import Conbini
 import ConbiniForTesting
+import Combine
 
 /// Tests the correct behavior of the *expectation* conveniences.
 final class ExpectationsTests: XCTestCase {

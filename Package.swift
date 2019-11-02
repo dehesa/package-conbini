@@ -13,8 +13,8 @@ let package = Package(
     dependencies: [],
     targets: [
         .target(name: "Conbini", dependencies: []),
-        .target(name: "ConbiniForTesting", dependencies: [], path: "Sources/Testing"),
-        .testTarget(name: "ConbiniTests", dependencies: ["Conbini", "ConbiniForTesting"]),
-        .testTarget(name: "ConbiniForTestingTests", dependencies: ["Conbini", "ConbiniForTesting"], path: "Tests/TestingTests")
+        .target(name: "ConbiniForTesting", dependencies: [.target(name: "Conbini")], path: "Sources/Testing"),
+        .testTarget(name: "ConbiniTests", dependencies: ["Conbini"]),
+        .testTarget(name: "ConbiniForTestingTests", dependencies: ["ConbiniForTesting"], path: "Tests/TestingTests")
     ]
 )
