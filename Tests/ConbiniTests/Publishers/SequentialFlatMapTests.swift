@@ -2,8 +2,8 @@ import XCTest
 import Conbini
 import Combine
 
-/// Tests the correct behavior of the `Then` operator.
-final class SequentialOpTests: XCTestCase {
+/// Tests the correct behavior of the `SequentialFlatMap` publisher.
+final class SequentialFlatMapTests: XCTestCase {
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}
     /// A convenience storage of cancellables.
@@ -25,7 +25,7 @@ final class SequentialOpTests: XCTestCase {
     ]
 }
 
-extension SequentialOpTests {
+extension SequentialFlatMapTests {
     /// Checks there are no type ambiguities for all case of error support.
     func testStaticErrorChecking() {
         let e = CustomError()
@@ -33,7 +33,7 @@ extension SequentialOpTests {
         do {
             let child = Just(5)
             let upstream = [child, child, child].publisher
-            let downstream = upstream.sequentialFlatMap().eraseToAnyPublisher()
+            let downstream = upstream.sequentialFlatMap(failure: Never.self).eraseToAnyPublisher()
             guard type(of: downstream).Output.self == Int.self else { return XCTFail() }
             guard type(of: downstream).Failure.self == Never.self else { return XCTFail() }
         }
@@ -42,7 +42,7 @@ extension SequentialOpTests {
         do {
             let child = Complete<Int,CustomError>(error: e)
             let upstream = [child, child, child].publisher
-            let downstream = upstream.sequentialFlatMap().eraseToAnyPublisher()
+            let downstream = upstream.sequentialFlatMap(failure: CustomError.self).eraseToAnyPublisher()
             guard type(of: downstream).Output.self == Int.self else { return XCTFail() }
             guard type(of: downstream).Failure.self == CustomError.self else { return XCTFail() }
         }
@@ -51,7 +51,7 @@ extension SequentialOpTests {
         do {
             let child = Just(5)
             let upstream = [child, child, child].publisher.setFailureType(to: CustomError.self)
-            let downstream = upstream.sequentialFlatMap().eraseToAnyPublisher()
+            let downstream = upstream.sequentialFlatMap(failure: CustomError.self).eraseToAnyPublisher()
             guard type(of: downstream).Output.self == Int.self else { return XCTFail() }
             guard type(of: downstream).Failure.self == CustomError.self else { return XCTFail() }
         }
@@ -60,7 +60,7 @@ extension SequentialOpTests {
         do {
             let child = Complete<Int,CustomError>(error: e)
             let upstream = [child, child, child].publisher.setFailureType(to: CustomError.self)
-            let downstream = upstream.sequentialFlatMap().eraseToAnyPublisher()
+            let downstream = upstream.sequentialFlatMap(failure: CustomError.self).eraseToAnyPublisher()
             guard type(of: downstream).Output.self == Int.self else { return XCTFail() }
             guard type(of: downstream).Failure.self == CustomError.self else { return XCTFail() }
         }
@@ -83,7 +83,7 @@ extension SequentialOpTests {
         
         let exp = self.expectation(description: "Downstream must complete")
         let upstream = PassthroughSubject<Child,Never>()
-        upstream.sequentialFlatMap().collect().sink(receiveCompletion: {
+        upstream.sequentialFlatMap(failure: Never.self).collect().sink(receiveCompletion: {
             guard case .finished = $0 else { return XCTFail() }
             exp.fulfill()
         }, receiveValue: {
@@ -101,7 +101,7 @@ extension SequentialOpTests {
         let upstream = PassthroughSubject<Child,Never>()
         
         let exp = self.expectation(description: "Downstream must complete")
-        upstream.sequentialFlatMap().collect().sink(receiveCompletion: {
+        upstream.sequentialFlatMap(failure: Never.self).collect().sink(receiveCompletion: {
             guard case .finished = $0 else { return XCTFail() }
             exp.fulfill()
         }, receiveValue: {
@@ -160,7 +160,7 @@ extension SequentialOpTests {
         }.publisher
         
         let exp = self.expectation(description: "Downstream must complete")
-        upstream.sequentialFlatMap().collect().sink(receiveCompletion: {
+        upstream.sequentialFlatMap(failure: Never.self).collect().sink(receiveCompletion: {
             guard case .finished = $0 else { return XCTFail() }
             exp.fulfill()
         }, receiveValue: {
@@ -177,7 +177,7 @@ extension SequentialOpTests {
         let upstream = PassthroughSubject<AnyPublisher<Int,Never>,Never>()
 
         let exp = self.expectation(description: "Downstream must complete")
-        upstream.sequentialFlatMap().collect().sink(receiveCompletion: {
+        upstream.sequentialFlatMap(failure: Never.self).collect().sink(receiveCompletion: {
             guard case .finished = $0 else { return XCTFail() }
             exp.fulfill()
         }, receiveValue: {
@@ -208,7 +208,7 @@ extension SequentialOpTests {
 
         let exp = self.expectation(description: "Downstream must complete")
         upstream.buffer(size: 50, prefetch: .keepFull, whenFull: .dropNewest)
-            .sequentialFlatMap().collect().sink(receiveCompletion: {
+            .sequentialFlatMap(failure: Never.self).collect().sink(receiveCompletion: {
                 guard case .finished = $0 else { return XCTFail() }
                 exp.fulfill()
             }, receiveValue: {
@@ -241,7 +241,7 @@ extension SequentialOpTests {
             
             typealias Child = DeferredResult<Int,CustomError>
             let upstream = [Child{.success(0)}, Child{.failure(e)}, Child{.success(1)}].publisher
-            upstream.sequentialFlatMap()
+            upstream.sequentialFlatMap(failure: CustomError.self)
                 .sink(receiveCompletion: {
                     guard case .failure(let error) = $0 else { return XCTFail() }
                     guard type(of: error) == CustomError.self else { return XCTFail() }

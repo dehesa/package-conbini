@@ -22,7 +22,9 @@ public struct DeferredValue<Output>: Publisher {
         let subscription = Conduit(downstream: subscriber, closure: self.closure)
         subscriber.receive(subscription: subscription)
     }
-    
+}
+
+extension DeferredValue {
     /// The shadow subscription chain's origin.
     private final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         @SubscriptionState

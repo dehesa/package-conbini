@@ -2,7 +2,7 @@ import XCTest
 import Conbini
 import Combine
 
-/// Tests the correct behavior of the `Then` operator.
+/// Tests the correct behavior of the `Result` operator.
 final class ResultOpTests: XCTestCase {
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}

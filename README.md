@@ -17,7 +17,46 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     }
     ```
 
--   `result` subscribes to the receiving publisher and execute the handler when a single value followed by a successful completion is received.
+-   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement (similar to `Future`).
+    Useful when asynchronous operations must be performed sequentially on a value.
+
+    ```swift
+    let publisher = [1, 2].publisher.asyncMap { (value, promise) in
+        queue.async {
+            let newValue = String(value * 10)
+            promise(newValue)
+        }
+    }
+    ```
+
+-   `sequentialMap` transform elements received from upstream (as `asyncMap`) with the twist that it allows you to call multiple times the `promise` callback; effectively transforming one value into many results.
+
+    ```swift
+    let publisher = [1, 2].publisher.sequentialMap { (value, promise) in
+        queue.async {
+            promise(value * 10 + 1, .continue)
+            promise(value * 10 + 2, .continue)
+            promise(value * 10 + 3, .finished)
+        }
+    }
+
+    // Downstream will receive: [11, 12, 13, 21, 22, 23]
+    ```
+
+    The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
+
+-   `sequentialFlatMap` performs a similar operation to `flatMap` (i.e. flattens/executes a publisher emitted from upstream); but instead of accepting _willy-nilly_ all emitted publishers, it only requests one value at a time (through backpressure mechanisms).
+    Useful for operations/enpoints that must be performed sequentially.
+
+    ```swift
+    [enpointA, endpointB, endpointC].publisher
+        .sequentialFlatMap()
+    // Downstream will receive: [resultEndpointA, resultEndpointB, resultEndpointC]
+    ```
+
+    This publisher works "as expected" even with upstream publishers that disregard backpressure (e.g. `PassthroughSubject`). It buffers publishers internally and execute them depending on the subscriber's demand and whether a publisher is currently _in operation_. Do note, that if a failure completion is received, the whole publisher will finish and any publisher being buffered won't have a chance to execute. This is a similar behavior as Combine's `buffer()` operator.
+
+-   `result` subscribes to the receiving publisher and execute the provided closure when a single value followed by a successful completion is received.
     In case of failure, the handler is executed with such failure.
 
     ```swift
@@ -27,27 +66,6 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
         case .failure(let error): ...
         }
     }
-    ```
-
--   `sequentialFlatMap` performs a similar operation to a `flatMap` (i.e. flattens/executes a publisher emitted from upstream); but instead of accepting _willy-nilly_ all emitted publishers, it only requests one value at a time (through backpressure mechanisms).
-    It is very useful for operations/enpoints that must be performed sequentially.
-
-    ```swift
-    [enpointA, endpointB, endpointC].publisher.sequentialFlatMap()
-    ```
-
-    If the upstream emits values without regard to backpressure (e.g. `Subject`s), `sequentialFlatMap` buffers them internally; however if a completion event is sent, the values in the buffer won't be executed. To have truly sequential event handling on non-supporting backpressure upstreams, use the `buffer` operator.
-
-    ```swift
-    let upstream = PassthroughSubject<Just<Int>,SomeError>()
-
-    let downstream = upstream
-        .buffer(size: 20, prefetch: .keepFull, whenFull: .customError(SomeError()))
-        .sequentialFlatMap()
-
-    upstream.send( Just(0) )
-    upstream.send( Just(1) )
-    upstream.send(completion: .finished)
     ```
 
 ## Publishers

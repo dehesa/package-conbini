@@ -4,8 +4,7 @@ import Foundation
 extension Publishers {
     /// Executes child publishers one at a time through the use of backpressure management.
     ///
-    /// The `SequentialFlatMap` doesn't buffer the incoming publishers; instead it controls the demand only asking a new publisher when it needs it (i.e. sequentially).
-    /// If you use a `Subject` to send a barrage of publishers, they will be ignored except the first one. If you want to received all publishers, you would need to add a `buffer` operator before this `sequentialFlatMap`; such as:
+    /// If the upstream emits values without regard to backpressure (e.g. Subjects), `SequentialFlatMap` buffers them internally; however if a completion event is sent, the values in the buffer won't be executed. To have truly sequential event handling on non-supporting backpressure upstreams, use the buffer operator.
     /// ```
     /// let upstream = PassthroughSubject<Int,CustomError>()
     /// let downstream = upstream
@@ -25,7 +24,7 @@ extension Publishers {
     /// let downstream = upstream.sequentialFlatMap()
     /// ```
     /// - attention: The stream only completes when both the upstream and the children publishers complete.
-    public struct SequentialFlatMap<Child,Upstream,Failure>: Publisher where Upstream:Publisher, Upstream.Output==Child, Child:Publisher, Failure:Swift.Error {
+    public struct SequentialFlatMap<Child,Upstream,Failure>: Publisher where Child:Publisher, Upstream:Publisher, Failure:Swift.Error, Upstream.Output==Child {
         public typealias Output = Child.Output
         
         /// The publisher from which this publisher receives children.
@@ -302,7 +301,7 @@ extension Publishers.SequentialFlatMap.Conduit {
         /// The subscription used to manage the upstream back-pressure.
         var upstream: Subscription?
         /// The subscriber receiving the input and completion.
-        var downstream: Downstream
+        let downstream: Downstream
         /// The child state managing the sequential children.
         var childState: ChildState
         /// The children that has been sent but not yet executed.
