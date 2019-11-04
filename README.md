@@ -151,7 +151,7 @@ Conbini provides convenience subscribers to ease code testing. These subscribers
     let emittedValues = publisherChain.expectsAll(timeout: 0.8, on: test)
     ```
 
--   `expectAtLeast` subscribes to a publisher making the running test wait for at least the provided amount of values.
+-   `expectsAtLeast` subscribes to a publisher making the running test wait for at least the provided amount of values.
     Once the provided amount of values is received, the publisher gets cancelled and the values are returned.
 
     ```swift

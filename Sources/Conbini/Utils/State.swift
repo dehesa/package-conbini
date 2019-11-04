@@ -22,8 +22,8 @@ internal struct SubscriptionState<State> {
         
         set(newState) {
             os_unfair_lock_lock(&self.lock)
-            defer { os_unfair_lock_unlock(&self.lock) }
             self.state = newState
+            os_unfair_lock_unlock(&self.lock)
         }
     }
     
@@ -31,9 +31,9 @@ internal struct SubscriptionState<State> {
     /// - returns: The previously guarded state.
     @discardableResult mutating func remove() -> State? {
         os_unfair_lock_lock(&self.lock)
-        defer { os_unfair_lock_unlock(&self.lock) }
         let result = self.state
         self.state = nil
+        os_unfair_lock_unlock(&self.lock)
         return result
     }
 }

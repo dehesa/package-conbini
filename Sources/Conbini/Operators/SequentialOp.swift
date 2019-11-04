@@ -5,7 +5,7 @@ extension Publisher {
     ///
     /// Please note:
     /// - Values are processed one at a time; meaning till the previous value has not been fully processed, the next won't start.
-    /// - `Promise` must be called with the transformed value or the stream will never complete.
+    /// - `promise` must be called with the transformed value or the stream will never complete.
     /// ```
     /// [0, 1, 2].publisher.sequentialContinuousMap { (value, promise) in
     ///    DispatchQueue.main.async {
@@ -33,7 +33,9 @@ extension Publisher {
     /// [0, 1, 2].publisher.sequentialContinuousMap { (value, promise) in
     ///    DispatchQueue.main.async {
     ///        // Some operation with value
-    ///        promise( String(value) )
+    ///        promise(String(value), .continue)
+    ///        promise(String(value + 1), .continue)
+    ///        promise(String(value + 2), .finished)
     ///    }
     /// }
     /// ```
