@@ -15,13 +15,39 @@ extension Publisher {
     /// }
     /// ```
     /// - parameter transform: A closure that takes the upstream emitted value and expects a promise to be called with the transformed result.
-    public func asyncMap<T>(_ transform: @escaping Publishers.SequentialMap<Self,T>.SimpleClosure) -> Publishers.SequentialMap<Self,T> {
+    /// - parameter value: The value received from the upstream.
+    /// - parameter promise: The closure to call once the transformation is done.
+    /// - parameter result: The transformed result.
+    public func asyncMap<T>(_ transform: @escaping (_ value: Output, _ promise: @escaping (_ result: T)->Void) -> Void) -> Publishers.SequentialMap<Self,T> {
         .init(upstream: self) { (value, promise) in
             transform(value) { (result) in
                 _ = promise(result, .finished)
             }
         }
     }
+    
+    /// Transforms all elements from the upstream publisher with a provided closure.
+    ///
+    /// Please note:
+    /// - Values are processed one at a time; meaning till the previous value has not been fully processed, the next won't start.
+    /// - `promise` must be called with the transformed value or the stream will never complete.
+    /// ```
+    /// [0, 1, 2].publisher.sequentialContinuousMap { (value, promise) in
+    ///    DispatchQueue.main.async {
+    ///        // Some operation with value
+    ///        promise( .success(String(value)) )
+    ///    }
+    /// }
+    /// ```
+    /// - parameter transform: A closure that takes the upstream emitted value and expects a promise to be called with the transformed result.
+    /// - parameter value: The value received from the upstream.
+    /// - parameter promise: The closure to call once the transformation is done.
+    /// - parameter result: A `Result` wrapping the transformed element or a failure.
+    public func asyncTryMap<T,F>(_ transform: @escaping (_ value: Output, _ promise: @escaping (_ result: Result<T,F>)->Void) -> Void) -> Publishers.SequentialMap<Self,T> {
+        #warning("Do me")
+        fatalError()
+    }
+        
     
     /// Transforms all elements from the upstream publisher with a provided closure.
     ///

@@ -26,33 +26,43 @@ public struct DeferredValue<Output>: Publisher {
 
 extension DeferredValue {
     /// The shadow subscription chain's origin.
-    private final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
-        @SubscriptionState
-        private var state: (downstream: Downstream, closure: Closure)
+    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+        @Locked private var state: State<(),Configuration>
         
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter closure: Closure in charge of generating the emitted value.
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .init(wrappedValue: (downstream, closure))
+            _state = .init(active: .init(downstream: downstream, closure: closure))
+        }
+        
+        var combineIdentifier: CombineIdentifier {
+            _state.combineIdentifier
         }
         
         func request(_ demand: Subscribers.Demand) {
-            guard demand > 0, let (downstream, closure) = self._state.remove() else { return }
+            guard demand > 0,
+                  case .active(let config) = _state.terminate() else { return }
             
             let input: Output
             do {
-                input = try closure()
+                input = try config.closure()
             } catch let error {
-                return downstream.receive(completion: .failure(error))
+                return config.downstream.receive(completion: .failure(error))
             }
             
-            _ = downstream.receive(input)
-            downstream.receive(completion: .finished)
+            _ = config.downstream.receive(input)
+            config.downstream.receive(completion: .finished)
         }
         
         func cancel() {
-            self._state.remove()
+            _state.terminate()
+        }
+        
+        /// The configuration for the subscription active state.
+        private struct Configuration {
+            let downstream: Downstream
+            let closure: Closure
         }
     }
 }

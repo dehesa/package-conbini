@@ -13,30 +13,9 @@ public struct Complete<Output,Failure:Swift.Error>: Publisher {
         self.error = error
     }
     
-    public func receive<S>(subscriber: S) where S:Subscriber, Output==S.Input, Failure==S.Failure {
+    public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
         let subscription = Conduit(downstream: subscriber, error: self.error)
         subscriber.receive(subscription: subscription)
-    }
-    
-    /// The shadow subscription chain's origin.
-    private final class Conduit<Downstream>: Subscription where Downstream:Subscriber {
-        @SubscriptionState
-        private var state: (downstream: Downstream, error: Downstream.Failure?)
-        /// Sets up the guarded state.
-        /// - parameter downstream: Downstream subscriber receiving the data from this instance.
-        /// - parameter error: The success or error to be sent upon subscription.
-        init(downstream: Downstream, error: Downstream.Failure?) {
-            self._state = .init(wrappedValue: (downstream, error))
-        }
-        
-        func request(_ demand: Subscribers.Demand) {
-            guard demand > 0, let (downstream, error) = self._state.remove() else { return }
-            downstream.receive(completion: error.map { .failure($0) } ?? .finished)
-        }
-        
-        func cancel() {
-            self._state.remove()
-        }
     }
 }
 
@@ -55,5 +34,38 @@ extension Complete where Output==Never {
     /// This will perform a similar operation to `Fail`.
     public init(error: Failure) {
         self.error = error
+    }
+}
+
+extension Complete {
+    /// The shadow subscription chain's origin.
+    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+        @Locked private var state: State<(),Configuration>
+        /// Sets up the guarded state.
+        /// - parameter downstream: Downstream subscriber receiving the data from this instance.
+        /// - parameter error: The success or error to be sent upon subscription.
+        init(downstream: Downstream, error: Downstream.Failure?) {
+            _state = .init(active: .init(downstream: downstream, error: error))
+        }
+        
+        var combineIdentifier: CombineIdentifier {
+            _state.combineIdentifier
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            guard demand > 0,
+                  case .active(let config) = _state.terminate() else { return }
+            config.downstream.receive(completion: config.error.map { .failure($0) } ?? .finished)
+        }
+        
+        func cancel() {
+            _state.terminate()
+        }
+        
+        /// The configuration for the subscription active state.
+        private struct Configuration {
+            let downstream: Downstream
+            let error: Downstream.Failure?
+        }
     }
 }

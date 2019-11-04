@@ -14,11 +14,6 @@ extension Publishers {
         /// - parameter value: The value received from the upstream.
         /// - parameter promise: The promise to call once the transformation is done.
         public typealias Closure = (_ value: Upstream.Output, _ promise: @escaping Promise) -> Void
-        /// The closure type being stored for value transformation.
-        /// - parameter value: The value received from the upstream.
-        /// - parameter promise: The promise to call once the transformation is done.
-        /// - parameter result: The transformed result.
-        public typealias SimpleClosure = (_ value: Upstream.Output, _ promise: @escaping (_ result: Output)->Void) -> Void
 
         /// The upstream publisher.
         private let upstream: Upstream
@@ -293,7 +288,9 @@ extension Publishers.SequentialMap {
 extension Publishers.SequentialMap.Conduit.State.Configuration {
     /// Whether there is a closure being executed.
     enum Status: Equatable {
+        /// No closure is being executed.
         case idle
+        /// A closure is being executed.
         case processing
     }
 }

@@ -21,30 +21,42 @@ public struct DeferredResult<Output,Failure:Swift.Error>: Publisher {
         let subscription = Conduit(downstream: subscriber, closure: self.closure)
         subscriber.receive(subscription: subscription)
     }
-    
+}
+
+extension DeferredResult {
     /// The shadow subscription chain's origin.
-    private final class Conduit<Downstream>: Subscription where Downstream: Subscriber, Output==Downstream.Input, Failure==Downstream.Failure {
-        @SubscriptionState
-        private var state: (downstream: Downstream, closure: Closure)
+    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+        @Locked private var state: State<(),Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .init(wrappedValue: (downstream, closure))
+            _state = .init(active: .init(downstream: downstream, closure: closure))
+        }
+        
+        var combineIdentifier: CombineIdentifier {
+            _state.combineIdentifier
         }
         
         func request(_ demand: Subscribers.Demand) {
-            guard demand > 0, let (downstream, closure) = self._state.remove() else { return }
+            guard demand > 0,
+                  case .active(let config) = _state.terminate() else { return }
             
-            switch closure() {
+            switch config.closure() {
             case .success(let value):
-                _ = downstream.receive(value)
-                downstream.receive(completion: .finished)
+                _ = config.downstream.receive(value)
+                config.downstream.receive(completion: .finished)
             case .failure(let error):
-                downstream.receive(completion: .failure(error))
+                config.downstream.receive(completion: .failure(error))
             }
         }
         
         func cancel() {
-            self._state.remove()
+            _state.terminate()
+        }
+        
+        /// The configuration for the subscription active state.
+        private struct Configuration {
+            let downstream: Downstream
+            let closure: Closure
         }
     }
 }

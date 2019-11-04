@@ -13,38 +13,51 @@ public struct DeferredCompletion: Publisher {
     private let closure: Closure
     
     /// Creates a publisher that send a value and completes successfully or just fails depending on the result of the given closure.
+    /// - parameter closure: The closure which produces an empty successful completion or a failure (if it throws).
     public init(closure: @escaping Closure) {
         self.closure = closure
     }
     
-    public func receive<S>(subscriber: S) where S: Subscriber, Output==S.Input, Failure==S.Failure {
+    public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
         let subscription = Conduit(downstream: subscriber, closure: self.closure)
         subscriber.receive(subscription: subscription)
     }
-    
+}
+
+extension DeferredCompletion {
     /// The shadow subscription chain's origin.
-    private final class Conduit<Downstream>: Subscription where Downstream: Subscriber, Failure==Downstream.Failure {
-        @SubscriptionState
-        private var state: (downstream: Downstream, closure: Closure)
+    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
+        @Locked private var state: State<(),Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .init(wrappedValue: (downstream, closure))
+            _state = .init(active: .init(downstream: downstream, closure: closure))
+        }
+        
+        var combineIdentifier: CombineIdentifier {
+            _state.combineIdentifier
         }
         
         func request(_ demand: Subscribers.Demand) {
-            guard demand > 0, let (downstream, closure) = self._state.remove() else { return }
+            guard demand > 0,
+                  case .active(let config) = _state.terminate() else { return }
             
             do {
-                try closure()
+                try config.closure()
             } catch let error {
-                return downstream.receive(completion: .failure(error))
+                return config.downstream.receive(completion: .failure(error))
             }
             
-            downstream.receive(completion: .finished)
+            config.downstream.receive(completion: .finished)
         }
         
         func cancel() {
-            self._state.remove()
+            _state.terminate()
+        }
+        
+        /// The configuration for the subscription active state.
+        private struct Configuration {
+            let downstream: Downstream
+            let closure: Closure
         }
     }
 }

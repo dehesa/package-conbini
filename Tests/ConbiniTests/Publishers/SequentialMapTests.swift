@@ -7,11 +7,11 @@ final class SequentialMapTests: XCTestCase {
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}
     /// A convenience storage of cancellables.
-    private var cancellables: Set<AnyCancellable> = .init()
+    private var cancellables = Set<AnyCancellable>()
     
     override func setUp() {
         self.continueAfterFailure = false
-        self.cancellables = .init()
+        self.cancellables.removeAll()
     }
 
     static var allTests = [
