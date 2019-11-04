@@ -27,6 +27,7 @@ public struct DeferredValue<Output>: Publisher {
 extension DeferredValue {
     /// The shadow subscription chain's origin.
     private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+        /// Enum listing all possible conduit states.
         @Locked private var state: State<(),Configuration>
         
         /// Sets up the guarded state.

@@ -40,6 +40,7 @@ extension Complete where Output==Never {
 extension Complete {
     /// The shadow subscription chain's origin.
     private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+        /// Enum listing all possible subscription states.
         @Locked private var state: State<(),Configuration>
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.

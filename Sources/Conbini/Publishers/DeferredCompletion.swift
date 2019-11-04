@@ -27,6 +27,7 @@ public struct DeferredCompletion: Publisher {
 extension DeferredCompletion {
     /// The shadow subscription chain's origin.
     private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
+        /// Enum listing all possible conduit states.
         @Locked private var state: State<(),Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {

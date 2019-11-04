@@ -20,121 +20,76 @@ public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
         self.closure = setup
     }
     
-    public func receive<S>(subscriber: S) where S:Subscriber, Failure==S.Failure, Output==S.Input {
-        let subscription = Conduit(downstream: subscriber, closure: self.closure)
-        subscriber.receive(subscription: subscription)
+    public func receive<S>(subscriber: S) where S:Subscriber, S.Failure==Failure, S.Input==Output {
+        let upstream = PassthroughSubject<Output,Failure>()
+        let conduit = Conduit(upstream: upstream, downstream: subscriber, closure: self.closure)
+        upstream.subscribe(conduit)
     }
-    
+}
+
+extension DeferredPassthrough {
     /// Internal Shadow subscription catching all messages from downstream and forwarding them upstream.
-    private final class Conduit<Downstream>: Subscription, Subscriber where Downstream: Subscriber, Failure==Downstream.Failure, Output==Downstream.Input {
-        /// Lock used to modify `state` (exclusively).
-        private var lock: os_unfair_lock
-        /// Enum listing all possible subscription states.
-        private var state: State
+    private struct Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+        /// Enum listing all possible conduit states.
+        @Locked private var state: State<WaitConfiguration,ActiveConfiguration>
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
-        init(downstream: Downstream, closure: @escaping Closure) {
-            self.lock = .init()
-            self.state = .inactive(downstream: downstream, closure: closure)
+        init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {
+            _state = .init(awaiting: .init(upstream: upstream, downstream: downstream, closure: closure))
         }
         
-        // Stage 1: Receive request from downstream. This function can also be called at almost any point.
-        func request(_ demand: Subscribers.Demand) {
-            os_unfair_lock_lock(&self.lock)
-            
-            switch self.state {
-            case .inactive(let downstream, let closure) where demand > 0:
-                let subject = PassthroughSubject<Output,Failure>()
-                self.state = .setup(downstream: downstream, closure: closure, subject: subject, demand: demand)
-                os_unfair_lock_unlock(&self.lock)
-                subject.subscribe(self)
-            case .setup(let downstream, let closure, let subject, let demand):
-                self.state = .setup(downstream: downstream, closure: closure, subject: subject, demand: demand)
-                os_unfair_lock_unlock(&self.lock)
-            case .active(let upstream, let downstream, let setup):
-                var deferred: State.SetUp? = nil
-                if let toSetup = setup, demand > 0 {
-                    self.state = .active(upstream: upstream, downstream: downstream, setup: nil)
-                    deferred = toSetup
-                }
-                os_unfair_lock_unlock(&self.lock)
-                upstream.request(demand)
-                guard let (closure, subject) = deferred else { return }
-                closure(subject)
-            case .cancelled, .inactive:
-                os_unfair_lock_unlock(&self.lock)
-            }
+        var combineIdentifier: CombineIdentifier {
+            _state.combineIdentifier
         }
         
-        // Stage 2: Receive subscription from the `Passthrough` subject. This function can only be called on `.setup` or `.cancelled` state.
         func receive(subscription: Subscription) {
-            os_unfair_lock_lock(&self.lock)
-            switch self.state {
-            case .setup(let downstream, let closure, let subject, let demand):
-                self.state = .active(upstream: subscription, downstream: downstream, setup: (demand > 0) ? nil : (closure, subject))
-                os_unfair_lock_unlock(&self.lock)
-                subscription.request(demand)
-                guard demand > 0 else { return }
-                subscription.request(demand)
-                closure(subject)
-            case .cancelled:
-                os_unfair_lock_unlock(&self.lock)
-            case .inactive, .active: fatalError()
-            }
+            guard let config = _state.activate(locking: {
+                    .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure))
+                }) else { return }
+            config.downstream.receive(subscription: self)
         }
         
-        // Stage 3: Receive input from the `Passthrough` subject.
+        func request(_ demand: Subscribers.Demand) {
+            guard demand > 0 else { return }
+            
+            var temporary: ActiveConfiguration.Setup? = nil
+            guard let config = _state.onActive(locking: {
+                    temporary = $0.setup
+                    return .init(upstream: $0.upstream, downstream: $0.downstream, setup: nil)
+                }) else { return }
+            
+            config.upstream.request(demand)
+            guard let setup = temporary else { return }
+            setup.closure(setup.subject)
+        }
+        
         func receive(_ input: Output) -> Subscribers.Demand {
-            os_unfair_lock_lock(&self.lock)
-            let downstream = self.state.downstream
-            os_unfair_lock_unlock(&self.lock)
-            return downstream?.receive(input) ?? .none
+            guard let config = _state.onActive(locking: { $0 }) else { return .none }
+            return config.downstream.receive(input)
         }
         
-        // Stage 4: Receive completion from the `Passthrough` subject.
         func receive(completion: Subscribers.Completion<Failure>) {
-            os_unfair_lock_lock(&self.lock)
-            let downstream = self.state.downstream
-            self.state = .cancelled
-            os_unfair_lock_unlock(&self.lock)
-            downstream?.receive(completion: completion)
+            guard case .active(let config) = _state.terminate() else { return }
+            config.downstream.receive(completion: completion)
         }
         
         func cancel() {
-            os_unfair_lock_lock(&self.lock)
-            let upstream = self.state.upstream
-            self.state = .cancelled
-            os_unfair_lock_unlock(&self.lock)
-            upstream?.cancel()
+            guard case .active(let config) = _state.terminate() else { return }
+            config.upstream.cancel()
         }
         
-        /// The state in which the `Conduit` subscription finds itself in.
-        private enum State {
-            typealias SetUp = (closure: Closure, subject: PassthroughSubject<Output,Failure>)
-            /// The subscription has been initialized and sent downstream (as if the `Conduit` was the origin of the shadow subscription chain.
-            case inactive(downstream: Downstream, closure: Closure)
-            /// A greater than zero demand has been requested and thus the subject has been created and subscribed to. Now `Conduit` is waiting to receive an acknowledgment from the subject.
-            case setup(downstream: Downstream, closure: Closure, subject: PassthroughSubject<Output,Failure>, demand: Subscribers.Demand)
-            /// The subject has acknowledge creation and the full chain is setup and working. Demand is being forwarded directly to the subject subscription.
-            case active(upstream: Subscription, downstream: Downstream, setup: SetUp?)
-            /// The chain has been destroyed and no references are kept.
-            case cancelled
-            /// Returns the downstream subscription (if any).
-            var downstream: Downstream? {
-                switch self {
-                case .inactive(let downstream, _): return downstream
-                case .setup(let downstream, _, _, _): return downstream
-                case .active(_, let downstream, _): return downstream
-                case .cancelled: return nil
-                }
-            }
-            /// Returns the upstream subscription (if any).
-            var upstream: Subscription? {
-                switch self {
-                case .active(let upstream, _, _): return upstream
-                case .inactive, .setup, .cancelled: return nil
-                }
-            }
+        private struct WaitConfiguration {
+            let upstream: PassthroughSubject<Output,Failure>
+            let downstream: Downstream
+            let closure: Closure
+        }
+        
+        private struct ActiveConfiguration {
+            typealias Setup = (subject: PassthroughSubject<Output,Failure>, closure: Closure)
+            
+            let upstream: Subscription
+            let downstream: Downstream
+            var setup: Setup?
         }
     }
 }

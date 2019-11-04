@@ -178,9 +178,9 @@ The rule of thumb is to use `import Conbini` in your regular code (e.g. within y
 # References
 
 -   Apple's [Combine documentation](https://developer.apple.com/documentation/combine).
--   [OpenCombine](https://github.com/broadwaylamb/OpenCombine) is an open source implementation of Apple's Combine framework.
--   [CombineX](https://github.com/cx-org/CombineX) is an open source implementation of Apple's Combine framework.
 -   [The Combine book](https://store.raywenderlich.com/products/combine-asynchronous-programming-with-swift) is an excellent Ray Wenderlich book about the Combine framework.
 -   [Cocoa with love](https://www.cocoawithlove.com) has a great series of articles about the inner workings of Combine: [1. Protocols](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-1.html), [2. Sharing](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-2.html), [3. Asynchrony](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-3.html).
+-   [OpenCombine](https://github.com/broadwaylamb/OpenCombine) is an open source implementation of Apple's Combine framework.
+-   [CombineX](https://github.com/cx-org/CombineX) is an open source implementation of Apple's Combine framework.
 
 > The framework name references both the `Combine` framework and the helpful Japanese convenience stores 😄

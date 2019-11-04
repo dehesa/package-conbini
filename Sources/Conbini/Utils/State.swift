@@ -48,13 +48,46 @@ extension Locked {
         os_unfair_lock_unlock(self.unfairLock)
     }
     
+    /// Switches the state from `.awaitingSubscription` to `.active` by providing the active configuration parameters.
+    ///
+    /// If the state is already in `.active`, this function crashes. If the state is `.terminated`, no work is performed.
+    func activate(locking priviledgeHandler: (_ config: WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
+        self.lock()
+        switch self.state {
+        case .awaitingSubscription(let config):
+            let configuration = priviledgeHandler(config)
+            self.state = .active(configuration)
+            self.unlock()
+            return configuration
+        case .terminated:
+            self.unlock()
+            return nil
+        case .active: fatalError()
+        }
+    }
+    
+    ///
+    func onActive(locking priviledgeHandler: (_ config: ActiveConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
+        self.lock()
+        switch self.state {
+        case .active(let config):
+            self.state = .active(priviledgeHandler(config))
+            self.unlock()
+            return config
+        case .terminated:
+            self.unlock()
+            return nil
+        case .awaitingSubscription: fatalError()
+        }
+    }
+    
     /// Nullify the state and returns the previous state value.
     @discardableResult
     func terminate() -> Content {
-        os_unfair_lock_lock(self.unfairLock)
+        self.lock()
         let result = self.state
         self.state = nil
-        os_unfair_lock_unlock(self.unfairLock)
+        self.unlock()
         return result
     }
 }
