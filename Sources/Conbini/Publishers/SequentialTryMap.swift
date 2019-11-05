@@ -3,47 +3,49 @@ import Foundation
 
 extension Publishers {
     /// Transforms all elements from the upstream publisher with a provided closure.
-    public struct SequentialMap<Upstream,Output>: Publisher where Upstream:Publisher {
-        public typealias Failure = Upstream.Failure
-
+    public struct SequentialTryMap<Upstream,Output,TransformFailure>: Publisher where Upstream:Publisher, TransformFailure:Swift.Error {
+        public typealias Failure = Swift.Error
+        
         /// The upstream publisher.
         private let upstream: Upstream
         /// The closure generating the downstream value.
         /// - note: The closure is kept in the publisher; thus, if you keep the publisher around any reference in the closure will be kept too.
-        private let closure: Async.Closure<Upstream.Output, Output>
+        private let closure: Async.Closure<Upstream.Output, Result<Output,TransformFailure>>
         /// Creates a publisher that transforms the incoming value into another value, but may respond at a time in the future.
         /// - parameter upstream: The event emitter to the publisher being created.
         /// - parameter transform: Closure in charge of transforming the values.
         /// - note: The closure is kept in the publisher; thus, if you keep the publisher around any reference in the closure will be kept too.
-        public init(upstream: Upstream, transform: @escaping Async.Closure<Upstream.Output,Output>) {
+        public init(upstream: Upstream, transform: @escaping Async.Closure<Upstream.Output, Result<Output,TransformFailure>>) {
             self.upstream = upstream
             self.closure = transform
         }
 
         public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
-            let conduit = Async.Conduit<Upstream,Self,S,Output>(downstream: subscriber, closure: self.closure)
+            let conduit = Async.Conduit<Upstream,Self,S,TransformFailure>(downstream: subscriber, closure: self.closure)
             upstream.subscribe(conduit)
         }
     }
 }
 
-// - todo: Merge with SequentialTryMap
+// - todo: Merge with SequentialMap
 
 extension Async {
-    /// Subscription representing an activated `SequentialMap` publisher.
-    fileprivate final class Conduit<Upstream,Stage,Downstream,Value>: Subscription, Subscriber where Upstream:Publisher, Stage:Publisher, Downstream:Subscriber, Downstream.Input==Stage.Output, Downstream.Failure==Stage.Failure, Value==Stage.Output, Stage.Failure==Upstream.Failure {
+    /// Subscription representing an activated `SequentialTryMap` publisher.
+    fileprivate final class Conduit<Upstream,Stage,Downstream,Error>: Subscription, Subscriber where Upstream:Publisher, Stage:Publisher, Downstream:Subscriber, Downstream.Input==Stage.Output, Downstream.Failure==Stage.Failure,
+                                                    Downstream.Failure==Swift.Error, Error: Swift.Error {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         
+        typealias Value = Result<Stage.Output, Error>
         typealias PromiseClosure = Promise<Value>
-        typealias TransformClosure = Closure<Upstream.Output,Value>
+        typealias TransformClosure = Closure<Upstream.Output, Value>
         
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
         /// Debug identifier.
         var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
         
-        /// Creates a representation of an `SequentialMap` publisher.
+        /// Creates a representation of an `SequentialTryMap` publisher.
         init(downstream: Downstream, closure: @escaping TransformClosure) {
             _state = .awaitingSubscription(.init(downstream: downstream, closure: closure))
         }
@@ -115,7 +117,8 @@ extension Async {
                 self.state = .terminated
                 let downstream = config.downstream
                 _state.unlock()
-                downstream.receive(completion: completion)
+                
+                downstream.receive(completion: completion.mapError { $0 as Swift.Error })
             default:
                 config.upstream = nil
                 _state.unlock()
@@ -142,6 +145,18 @@ extension Async.Conduit {
             assert(config.demand > 0)
             
             let downstream = config.downstream
+            
+            let value: Stage.Output
+            switch result {
+            case .success(let output): value = output
+            case .failure(let error):
+                isFinished = true
+                self.state = .terminated
+                self._state.unlock()
+                downstream.receive(completion: .failure(error as Swift.Error))
+                return .forbidden
+            }
+            
             config.demand -= 1
             
             guard case .continue = request else {
@@ -149,7 +164,7 @@ extension Async.Conduit {
                 config.status = .idle
                 self._state.unlock()
                 
-                self.request(downstream.receive(result))
+                self.request(downstream.receive(value))
                 return .forbidden
             }
             
@@ -157,11 +172,11 @@ extension Async.Conduit {
             self._state.unlock()
             
             guard totalDemand == .none else {
-                self.request(downstream.receive(result))
+                self.request(downstream.receive(value))
                 return .allowed
             }
             
-            let demand = downstream.receive(result)
+            let demand = downstream.receive(value)
             precondition(demand >= 0)
             
             self._state.lock()

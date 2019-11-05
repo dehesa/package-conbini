@@ -29,6 +29,19 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     }
     ```
 
+    This operator also provides a `try` variant accepting a result (instead of a value).
+
+    ```swift
+    let publisher = [1, 2].publisher.asyncTryMap { (value, promise) in
+        do {
+            let newValue = try someOperation()
+            promise(.success(newValue))
+        } catch let error {
+            promise(.failure(error))
+        }
+    }
+    ```
+
 -   `sequentialMap` transform elements received from upstream (as `asyncMap`) with the twist that it allows you to call multiple times the `promise` callback; effectively transforming one value into many results.
 
     ```swift
@@ -45,7 +58,19 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
 
--   `sequentialFlatMap` performs a similar operation to `flatMap` (i.e. flattens/executes a publisher emitted from upstream); but instead of accepting _willy-nilly_ all emitted publishers, it only requests one value at a time (through backpressure mechanisms).
+    This operator also provides a `try` variant accepting a result (instead of a value).
+
+    ```swift
+    let publisher = [1, 2].publisher.sequentialTryMap { (value, promise) in
+        queue.async {
+            promise( .success(value * 10 + 1), .continue)
+            promise( .success(value * 10 + 2), .continue)
+            promise( .failure(CustomError), .finished)
+        }
+    }
+    ```
+
+*   `sequentialFlatMap` performs a similar operation to `flatMap` (i.e. flattens/executes a publisher emitted from upstream); but instead of accepting _willy-nilly_ all emitted publishers, it only requests one value at a time (through backpressure mechanisms).
     Useful for operations/enpoints that must be performed sequentially.
 
     ```swift
@@ -56,7 +81,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     This publisher works "as expected" even with upstream publishers that disregard backpressure (e.g. `PassthroughSubject`). It buffers publishers internally and execute them depending on the subscriber's demand and whether a publisher is currently _in operation_. Do note, that if a failure completion is received, the whole publisher will finish and any publisher being buffered won't have a chance to execute. This is a similar behavior as Combine's `buffer()` operator.
 
--   `result` subscribes to the receiving publisher and execute the provided closure when a single value followed by a successful completion is received.
+*   `result` subscribes to the receiving publisher and execute the provided closure when a single value followed by a successful completion is received.
     In case of failure, the handler is executed with such failure.
 
     ```swift

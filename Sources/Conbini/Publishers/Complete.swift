@@ -41,12 +41,12 @@ extension Complete {
     /// The shadow subscription chain's origin.
     private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible subscription states.
-        @Locked private var state: State<(),Configuration>
+        @LockableState private var state: State<(),Configuration>
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter error: The success or error to be sent upon subscription.
         init(downstream: Downstream, error: Downstream.Failure?) {
-            _state = .init(active: .init(downstream: downstream, error: error))
+            _state = .active(.init(downstream: downstream, error: error))
         }
         
         var combineIdentifier: CombineIdentifier {

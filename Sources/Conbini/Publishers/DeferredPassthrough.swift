@@ -31,11 +31,11 @@ extension DeferredPassthrough {
     /// Internal Shadow subscription catching all messages from downstream and forwarding them upstream.
     private struct Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Locked private var state: State<WaitConfiguration,ActiveConfiguration>
+        @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
         init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {
-            _state = .init(awaiting: .init(upstream: upstream, downstream: downstream, closure: closure))
+            _state = .awaitingSubscription(.init(upstream: upstream, downstream: downstream, closure: closure))
         }
         
         var combineIdentifier: CombineIdentifier {
@@ -43,28 +43,32 @@ extension DeferredPassthrough {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = _state.activate(locking: {
-                    .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure))
-                }) else { return }
+            guard let config = _state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure)) }) else { return }
             config.downstream.receive(subscription: self)
         }
         
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0 else { return }
             
-            var temporary: ActiveConfiguration.Setup? = nil
-            guard let config = _state.onActive(locking: {
-                    temporary = $0.setup
-                    return .init(upstream: $0.upstream, downstream: $0.downstream, setup: nil)
-                }) else { return }
+            _state.lock()
+            guard let config = self.state.activeConfiguration else { return _state.unlock() }
+            self.state = .active(.init(upstream: config.upstream, downstream: config.downstream, setup: nil))
+            _state.unlock()
             
             config.upstream.request(demand)
-            guard let setup = temporary else { return }
-            setup.closure(setup.subject)
+            guard let (subject, closure) = config.setup else { return }
+            closure(subject)
         }
         
         func receive(_ input: Output) -> Subscribers.Demand {
-            guard let config = _state.onActive(locking: { $0 }) else { return .none }
+            _state.lock()
+            
+            guard let config = self.state.activeConfiguration else {
+                _state.unlock()
+                return .none
+            }
+            
+            _state.unlock()
             return config.downstream.receive(input)
         }
         

@@ -36,7 +36,7 @@ extension Publishers.Then {
         typealias Failure = Downstream.Failure
         
         /// Performant non-rentrant unfair lock.
-        private var lock: os_unfair_lock
+        var lock: UnsafeMutablePointer<os_unfair_lock>
         /// Keeps track of the subscription state
         private var state: State
         
@@ -44,7 +44,8 @@ extension Publishers.Then {
         /// - parameter downstream: The subscriber receiving values downstream.
         /// - parameter transform: The closure that will eventually generate another publisher to switch to.
         private init(downstream: Downstream, transform: @escaping ()->Child) {
-            self.lock = .init()
+            self.lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
+            self.lock.initialize(to: os_unfair_lock())
             self.state = .initialized(closure: transform, downstream: downstream)
         }
         
@@ -57,19 +58,19 @@ extension Publishers.Then {
         }
         
         func receive(subscription: Subscription) {
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             
             switch self.state {
             case .initialized(let closure, let downstream):
                 self.state = .upstreaming(subscription: subscription, closure: closure, downstream: downstream, downstreamRequests: .none)
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
                 downstream.receive(subscription: self)
             case .upstreaming(_, _, let downstream, let downstreamRequests):
                 self.state = .transformed(subscription: subscription, downstream: downstream)
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
                 subscription.request(downstreamRequests)
             case .transformed: fatalError()
-            case .terminated: os_unfair_lock_unlock(&self.lock)
+            case .terminated: os_unfair_lock_unlock(self.lock)
             }
         }
         
@@ -78,7 +79,7 @@ extension Publishers.Then {
 
             let request: (Subscription, Subscribers.Demand)?
 
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             switch self.state {
             case .initialized: fatalError()
             case .upstreaming(let s, let c, let d, let r):
@@ -87,25 +88,25 @@ extension Publishers.Then {
             case .transformed(let s, _): request = (s, demand)
             case .terminated: request = nil
             }
-            os_unfair_lock_unlock(&self.lock)
+            os_unfair_lock_unlock(self.lock)
 
             guard let (subscription, demand) = request else { return }
             subscription.request(demand)
         }
         
         func receiveUpstream(completion: Subscribers.Completion<Upstream.Failure>) {
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             guard case .upstreaming(_, let closure, let downstream, _) = self.state else {
-                return os_unfair_lock_unlock(&self.lock)
+                return os_unfair_lock_unlock(self.lock)
             }
             
             switch completion {
             case .failure:
                 self.state = .terminated
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
                 downstream.receive(completion: completion)
             case .finished:
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
                 let child = closure()
                 child.subscribe(self)
             }
@@ -113,44 +114,45 @@ extension Publishers.Then {
         
         // receiveChild(_ input:)
         func receive(_ input: Downstream.Input) -> Subscribers.Demand {
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             switch self.state {
             case .initialized, .upstreaming:
                 fatalError()
             case .transformed(_, let downstream):
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
                 return downstream.receive(input)
             case .terminated:
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
                 return .none
             }
         }
         
         // receiveChild(completion:)
         func receive(completion: Subscribers.Completion<Downstream.Failure>) {
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             switch self.state {
             case .initialized, .upstreaming:
                 fatalError()
             case .transformed(_, let downstream):
                 self.state = .terminated
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
                 downstream.receive(completion: completion)
             case .terminated:
-                os_unfair_lock_unlock(&self.lock)
+                os_unfair_lock_unlock(self.lock)
             }
         }
 
         func cancel() {
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             let subscription = self.state.subscription
             self.state = .terminated
-            os_unfair_lock_unlock(&self.lock)
+            os_unfair_lock_unlock(self.lock)
             subscription?.cancel()
         }
         
         deinit {
             self.cancel()
+            self.lock.deallocate()
         }
     }
 }

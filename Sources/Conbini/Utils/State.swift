@@ -1,8 +1,44 @@
 import Combine
 import Foundation
 
+/// States where conduit can find itself into.
+enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
+    /// A subscriber has been sent upstream, but a subscription acknowledgement hasn't been received yet.
+    case awaitingSubscription(WaitConfiguration)
+    /// The conduit is active and potentially receiving and sending events.
+    case active(ActiveConfiguration)
+    /// The conduit has been cancelled or it has been terminated.
+    case terminated
+    
+    init(nilLiteral: ()) {
+        self = .terminated
+    }
+    
+    /// Returns the `WaitConfiguration` if the receiving state is at `.awaitingSubscription`. `nil` for `.terminated` states, and it produces a fatal error otherwise.
+    ///
+    /// It is used on places where `Combine` promises that a subscription might only be in `.awaitingSubscription` or `.terminated` state, but never on `.active`.
+    var awaitingConfiguration: WaitConfiguration? {
+        switch self {
+        case .awaitingSubscription(let config): return config
+        case .terminated: return nil
+        case .active: fatalError()
+        }
+    }
+    
+    /// Returns the `ActiveConfiguration` if the receiving state is at `.active`. `nil` for `.terminated` states, and it produces a fatal error otherwise.
+    ///
+    /// It is used on places where `Combine` promises that a subscription might only be in `.active` or `.terminated` state, but never on `.awaitingSubscription`.
+    var activeConfiguration: ActiveConfiguration? {
+        switch self {
+        case .active(let config): return config
+        case .terminated: return nil
+        case .awaitingSubscription: fatalError()
+        }
+    }
+}
+
 /// Property Wrapper used to guard a combine conduit state behind a unfair lock.
-@propertyWrapper internal final class Locked<WaitConfiguration,ActiveConfiguration>: CustomCombineIdentifierConvertible {
+@propertyWrapper internal final class LockableState<WaitConfiguration,ActiveConfiguration>: CustomCombineIdentifierConvertible {
     /// The type of the value being guarded by the lock.
     typealias Content = State<WaitConfiguration,ActiveConfiguration>
     
@@ -17,16 +53,6 @@ import Foundation
         self.state = wrappedValue
     }
     
-    /// Convenience initializer setting the property wrapper to the `awaitingSubscription` state.
-    convenience init(awaiting configuration: WaitConfiguration) {
-        self.init(wrappedValue: .awaitingSubscription(configuration))
-    }
-    
-    /// Convenience initializer setting the property wrapper to the `active` state.
-    convenience init(active configuration: ActiveConfiguration) {
-        self.init(wrappedValue: .active(configuration))
-    }
-    
     deinit {
         self.unfairLock.deallocate()
     }
@@ -37,7 +63,17 @@ import Foundation
     }
 }
 
-extension Locked {
+extension LockableState {
+    /// Factory function creating a lockable state initialized at the `.awaitingSubscription` stage.
+    static func awaitingSubscription(_ configuration: WaitConfiguration) -> Self {
+        return self.init(wrappedValue: .awaitingSubscription(configuration))
+    }
+    
+    /// Factory function creating a lockable state initialized at the `.active` stage.
+    static func active(_ configuration: ActiveConfiguration) -> Self {
+        return self.init(wrappedValue: .active(configuration))
+    }
+    
     /// Locks the state to other threads.
     func lock() {
         os_unfair_lock_lock(self.unfairLock)
@@ -49,8 +85,9 @@ extension Locked {
     }
     
     /// Switches the state from `.awaitingSubscription` to `.active` by providing the active configuration parameters.
-    ///
-    /// If the state is already in `.active`, this function crashes. If the state is `.terminated`, no work is performed.
+    /// - If the state is already in `.active`, this function crashes.
+    /// - If the state is `.terminated`, no work is performed.
+    /// - parameter priviledgeHandler: Code executed within the unfair locks. Don't call anywhere here; just perform computations.
     func activate(locking priviledgeHandler: (_ config: WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
         self.lock()
         switch self.state {
@@ -66,42 +103,13 @@ extension Locked {
         }
     }
     
-    ///
-    func onActive(locking priviledgeHandler: (_ config: ActiveConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
-        self.lock()
-        switch self.state {
-        case .active(let config):
-            self.state = .active(priviledgeHandler(config))
-            self.unlock()
-            return config
-        case .terminated:
-            self.unlock()
-            return nil
-        case .awaitingSubscription: fatalError()
-        }
-    }
-    
     /// Nullify the state and returns the previous state value.
     @discardableResult
     func terminate() -> Content {
         self.lock()
         let result = self.state
-        self.state = nil
+        self.state = .terminated
         self.unlock()
         return result
-    }
-}
-
-/// The possible conduit states.
-enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
-    /// A subscriber has been sent upstream, but a subscription acknowledgement hasn't been received yet.
-    case awaitingSubscription(WaitConfiguration)
-    /// The conduit is active and potentially receiving and sending events.
-    case active(ActiveConfiguration)
-    /// The conduit has been cancelled or it has been terminated.
-    case terminated
-    
-    init(nilLiteral: ()) {
-        self = .terminated
     }
 }

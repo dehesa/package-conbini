@@ -47,27 +47,29 @@ extension Publishers.SequentialFlatMap {
     /// Subscription representing the `SequentialFlatMap` publisher.
     fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Performant non-rentrant unfair lock.
-        var lock: os_unfair_lock
+        var lock: UnsafeMutablePointer<os_unfair_lock>
         /// The state managing the upstream and children subscriptions.
         var state: State
         
         /// Designated initializer passing the downstream subscriber.
         /// - parameter downstream: The `Subscriber` receiving the outcome of this *described* publisher.
         init(downstream: Downstream) {
-            self.lock = .init()
+            self.lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
+            self.lock.initialize(to: os_unfair_lock())
             self.state = .awaitingSubscription(downstream: downstream)
         }
         
         deinit {
             self.cancel()
+            self.lock.deallocate()
         }
         
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0 else { return }
             
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             guard let config = self.state.configuration else {
-                return os_unfair_lock_unlock(&self.lock)
+                return os_unfair_lock_unlock(self.lock)
             }
             config.demand += demand
             
@@ -83,7 +85,7 @@ extension Publishers.SequentialFlatMap {
                 config.childState = .awaitingSubscription
             case .awaitingSubscription: break
             }
-            os_unfair_lock_unlock(&self.lock)
+            os_unfair_lock_unlock(self.lock)
 
             switch action {
             case .left(let subscription): subscription.request(.max(1))
@@ -93,10 +95,10 @@ extension Publishers.SequentialFlatMap {
         }
         
         func cancel() {
-            os_unfair_lock_lock(&self.lock)
+            os_unfair_lock_lock(self.lock)
             let state = self.state
             self.state = .terminated
-            os_unfair_lock_unlock(&self.lock)
+            os_unfair_lock_unlock(self.lock)
             
             guard case .active(let configuration) = state else { return }
             configuration.childState.subscription?.cancel()
@@ -121,58 +123,58 @@ extension Publishers.SequentialFlatMap {
         }
         
         func receive(subscription: Subscription) {
-            os_unfair_lock_lock(&self.conduit.lock)
+            os_unfair_lock_lock(self.conduit.lock)
             switch self.conduit.state {
             case .awaitingSubscription(let downstream):
                 self.conduit.state = .active(.init(upstream: subscription, downstream: downstream))
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 downstream.receive(subscription: self.conduit)
-            case .terminated: os_unfair_lock_unlock(&self.conduit.lock)
+            case .terminated: os_unfair_lock_unlock(self.conduit.lock)
             case .active: fatalError("Combine assures a second subscription won't be ever received")
             }
         }
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            os_unfair_lock_lock(&self.conduit.lock)
+            os_unfair_lock_lock(self.conduit.lock)
             guard let config = self.conduit.state.configuration else {
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 return .none
             }
             
             config.waitingPublishers.append(input)
             guard case .idle = config.childState, config.demand > 0 else {
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 return .none
             }
             
             let child = config.waitingPublishers.removeFirst()
             config.childState = .awaitingSubscription
-            os_unfair_lock_unlock(&self.conduit.lock)
+            os_unfair_lock_unlock(self.conduit.lock)
             
             child.subscribe(ChildSubscriber(conduit: self.conduit))
             return .none
         }
         
         func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            os_unfair_lock_lock(&self.conduit.lock)
+            os_unfair_lock_lock(self.conduit.lock)
             guard let config = self.conduit.state.configuration else {
-                return os_unfair_lock_unlock(&self.conduit.lock)
+                return os_unfair_lock_unlock(self.conduit.lock)
             }
             
             switch completion {
             case .failure(let upstreamError):
                 self.conduit.state = .terminated
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 config.childState.subscription?.cancel()
                 config.downstream.receive(completion: .failure(upstreamError as! Downstream.Failure))
             case .finished:
                 if config.waitingPublishers.isEmpty, case .idle = config.childState {
                     self.conduit.state = .terminated
-                    os_unfair_lock_unlock(&self.conduit.lock)
+                    os_unfair_lock_unlock(self.conduit.lock)
                     config.downstream.receive(completion: .finished)
                 } else {
                     config.upstream = nil
-                    os_unfair_lock_unlock(&self.conduit.lock)
+                    os_unfair_lock_unlock(self.conduit.lock)
                 }
             }
         }
@@ -195,9 +197,9 @@ extension Publishers.SequentialFlatMap {
         }
         
         func receive(subscription: Subscription) {
-            os_unfair_lock_lock(&self.conduit.lock)
+            os_unfair_lock_lock(self.conduit.lock)
             guard let config = self.conduit.state.configuration else {
-                return os_unfair_lock_unlock(&self.conduit.lock)
+                return os_unfair_lock_unlock(self.conduit.lock)
             }
             
             guard case .awaitingSubscription = config.childState else {
@@ -206,67 +208,67 @@ extension Publishers.SequentialFlatMap {
             
             config.childState = .active(child: subscription)
             guard config.demand > 0 else {
-                return os_unfair_lock_unlock(&self.conduit.lock)
+                return os_unfair_lock_unlock(self.conduit.lock)
             }
             config.demand -= 1
-            os_unfair_lock_unlock(&self.conduit.lock)
+            os_unfair_lock_unlock(self.conduit.lock)
             subscription.request(.max(1))
         }
         
         func receive(_ input: Child.Output) -> Subscribers.Demand {
-            os_unfair_lock_lock(&self.conduit.lock)
+            os_unfair_lock_lock(self.conduit.lock)
             guard let c = self.conduit.state.configuration,
                   case .active = c.childState else {
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 return .none
             }
             
             let downstream = c.downstream
-            os_unfair_lock_unlock(&self.conduit.lock)
+            os_unfair_lock_unlock(self.conduit.lock)
             let receivedDemand = downstream.receive(input)
             
-            os_unfair_lock_lock(&self.conduit.lock)
+            os_unfair_lock_lock(self.conduit.lock)
             guard case .active(let config) = self.conduit.state,
                   case .active = config.childState else {
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 return .none
             }
             
             config.demand += receivedDemand
             guard config.demand > 0 else {
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 return .none
             }
             
             config.demand -= 1
-            os_unfair_lock_unlock(&self.conduit.lock)
+            os_unfair_lock_unlock(self.conduit.lock)
             return .max(1)
         }
         
         func receive(completion: Subscribers.Completion<Child.Failure>) {
-            os_unfair_lock_lock(&self.conduit.lock)
+            os_unfair_lock_lock(self.conduit.lock)
             guard let config = self.conduit.state.configuration else {
-                return os_unfair_lock_unlock(&self.conduit.lock)
+                return os_unfair_lock_unlock(self.conduit.lock)
             }
             
             switch completion {
             case .failure(let error):
                 self.conduit.state = .terminated
-                os_unfair_lock_unlock(&self.conduit.lock)
+                os_unfair_lock_unlock(self.conduit.lock)
                 config.downstream.receive(completion: .failure(error as! Downstream.Failure))
             case .finished:
                 if !config.waitingPublishers.isEmpty {
                     config.childState = .awaitingSubscription
                     let publisher = config.waitingPublishers.removeFirst()
-                    os_unfair_lock_unlock(&self.conduit.lock)
+                    os_unfair_lock_unlock(self.conduit.lock)
                     publisher.subscribe(ChildSubscriber(conduit: self.conduit))
                 } else if let upstream = config.upstream {
                     config.childState = .idle
-                    os_unfair_lock_unlock(&self.conduit.lock)
+                    os_unfair_lock_unlock(self.conduit.lock)
                     upstream.request(.max(1))
                 } else {
                     self.conduit.state = .terminated
-                    os_unfair_lock_unlock(&self.conduit.lock)
+                    os_unfair_lock_unlock(self.conduit.lock)
                     config.downstream.receive(completion: .finished)
                 }
             }

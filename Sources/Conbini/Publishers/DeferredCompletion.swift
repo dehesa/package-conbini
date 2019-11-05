@@ -28,10 +28,10 @@ extension DeferredCompletion {
     /// The shadow subscription chain's origin.
     private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Locked private var state: State<(),Configuration>
+        @LockableState private var state: State<(),Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            _state = .init(active: .init(downstream: downstream, closure: closure))
+            _state = .active(.init(downstream: downstream, closure: closure))
         }
         
         var combineIdentifier: CombineIdentifier {
