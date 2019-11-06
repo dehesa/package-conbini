@@ -29,16 +29,14 @@ extension DeferredValue {
     private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<(),Configuration>
+        /// Debug identifier.
+        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
         
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter closure: Closure in charge of generating the emitted value.
         init(downstream: Downstream, closure: @escaping Closure) {
             _state = .active(.init(downstream: downstream, closure: closure))
-        }
-        
-        var combineIdentifier: CombineIdentifier {
-            _state.combineIdentifier
         }
         
         func request(_ demand: Subscribers.Demand) {
@@ -60,7 +58,7 @@ extension DeferredValue {
             _state.terminate()
         }
         
-        /// The configuration for the subscription active state.
+        /// Values needed for the subscription active state.
         private struct Configuration {
             let downstream: Downstream
             let closure: Closure

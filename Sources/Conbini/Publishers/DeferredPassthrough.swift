@@ -11,6 +11,7 @@ import Foundation
 public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
     /// The closure type being store for delated execution.
     public typealias Closure = (PassthroughSubject<Output,Failure>) -> Void
+    
     /// Publisher's closure storage.
     /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
     private let closure: Closure
@@ -29,17 +30,19 @@ public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
 
 extension DeferredPassthrough {
     /// Internal Shadow subscription catching all messages from downstream and forwarding them upstream.
-    private struct Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    fileprivate final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
+        /// Debug identifier.
+        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
         init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {
             _state = .awaitingSubscription(.init(upstream: upstream, downstream: downstream, closure: closure))
         }
         
-        var combineIdentifier: CombineIdentifier {
-            _state.combineIdentifier
+        deinit {
+            self.cancel()
         }
         
         func receive(subscription: Subscription) {
@@ -62,12 +65,10 @@ extension DeferredPassthrough {
         
         func receive(_ input: Output) -> Subscribers.Demand {
             _state.lock()
-            
             guard let config = self.state.activeConfiguration else {
                 _state.unlock()
                 return .none
             }
-            
             _state.unlock()
             return config.downstream.receive(input)
         }
@@ -81,19 +82,23 @@ extension DeferredPassthrough {
             guard case .active(let config) = _state.terminate() else { return }
             config.upstream.cancel()
         }
+    }
+}
+
+extension DeferredPassthrough.Conduit {
+    /// Values needed for the subscription awaiting state.
+    private struct WaitConfiguration {
+        let upstream: PassthroughSubject<Output,Failure>
+        let downstream: Downstream
+        let closure: DeferredPassthrough.Closure
+    }
+    
+    /// Values needed for the subscription active state.
+    private struct ActiveConfiguration {
+        typealias Setup = (subject: PassthroughSubject<Output,Failure>, closure: DeferredPassthrough.Closure)
         
-        private struct WaitConfiguration {
-            let upstream: PassthroughSubject<Output,Failure>
-            let downstream: Downstream
-            let closure: Closure
-        }
-        
-        private struct ActiveConfiguration {
-            typealias Setup = (subject: PassthroughSubject<Output,Failure>, closure: Closure)
-            
-            let upstream: Subscription
-            let downstream: Downstream
-            var setup: Setup?
-        }
+        let upstream: Subscription
+        let downstream: Downstream
+        var setup: Setup?
     }
 }

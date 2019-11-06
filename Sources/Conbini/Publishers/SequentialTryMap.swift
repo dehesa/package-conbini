@@ -31,14 +31,12 @@ extension Publishers {
 
 extension Async {
     /// Subscription representing an activated `SequentialTryMap` publisher.
-    fileprivate final class Conduit<Upstream,Stage,Downstream,Error>: Subscription, Subscriber where Upstream:Publisher, Stage:Publisher, Downstream:Subscriber, Downstream.Input==Stage.Output, Downstream.Failure==Stage.Failure,
-                                                    Downstream.Failure==Swift.Error, Error: Swift.Error {
+    fileprivate final class Conduit<Upstream,Stage,Downstream,Error>: Subscription, Subscriber where Upstream:Publisher, Stage:Publisher, Downstream:Subscriber, Downstream.Input==Stage.Output, Downstream.Failure==Stage.Failure, Downstream.Failure==Swift.Error, Error: Swift.Error {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         
         typealias Value = Result<Stage.Output, Error>
-        typealias PromiseClosure = Promise<Value>
-        typealias TransformClosure = Closure<Upstream.Output, Value>
+        typealias TransformClosure = Async.Closure<Upstream.Output, Value>
         
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
@@ -129,7 +127,7 @@ extension Async {
 
 extension Async.Conduit {
     /// - precondition: When this function is called `self` is within the lock and in an active state.
-    private func makePromise() -> PromiseClosure {
+    private func makePromise() -> Async.Promise<Value> {
         var isFinished = false
         
         return { [weak self] (result, request) in
@@ -201,11 +199,13 @@ extension Async.Conduit {
 }
 
 extension Async.Conduit {
+    /// Values needed for the subscription awaiting state.
     private struct WaitConfiguration {
         let downstream: Downstream
         let closure: TransformClosure
     }
     
+    /// Values needed for the subscription active state.
     private final class ActiveConfiguration {
         /// The subscription used to manage the upstream back-pressure.
         var upstream: Subscription?

@@ -39,18 +39,17 @@ extension Complete where Output==Never {
 
 extension Complete {
     /// The shadow subscription chain's origin.
-    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    fileprivate struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible subscription states.
         @LockableState private var state: State<(),Configuration>
+        /// Debug identifier.
+        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
+        
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter error: The success or error to be sent upon subscription.
         init(downstream: Downstream, error: Downstream.Failure?) {
             _state = .active(.init(downstream: downstream, error: error))
-        }
-        
-        var combineIdentifier: CombineIdentifier {
-            _state.combineIdentifier
         }
         
         func request(_ demand: Subscribers.Demand) {
@@ -62,11 +61,13 @@ extension Complete {
         func cancel() {
             _state.terminate()
         }
-        
-        /// The configuration for the subscription active state.
-        private struct Configuration {
-            let downstream: Downstream
-            let error: Downstream.Failure?
-        }
+    }
+}
+
+extension Complete.Conduit {
+    /// Values needed for the subscription active state.
+    private struct Configuration {
+        let downstream: Downstream
+        let error: Downstream.Failure?
     }
 }
