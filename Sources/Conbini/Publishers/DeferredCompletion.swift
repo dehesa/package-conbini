@@ -8,6 +8,7 @@ public struct DeferredCompletion: Publisher {
     public typealias Failure = Swift.Error
     /// The closure type being store for delated execution.
     public typealias Closure = () throws -> Void
+    
     /// Deferred closure.
     /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
     private let closure: Closure
@@ -26,16 +27,14 @@ public struct DeferredCompletion: Publisher {
 
 extension DeferredCompletion {
     /// The shadow subscription chain's origin.
-    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
+    fileprivate struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<(),Configuration>
+        /// Debug identifier.
+        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
         
         init(downstream: Downstream, closure: @escaping Closure) {
             _state = .active(.init(downstream: downstream, closure: closure))
-        }
-        
-        var combineIdentifier: CombineIdentifier {
-            _state.combineIdentifier
         }
         
         func request(_ demand: Subscribers.Demand) {
@@ -54,11 +53,13 @@ extension DeferredCompletion {
         func cancel() {
             _state.terminate()
         }
-        
-        /// The configuration for the subscription active state.
-        private struct Configuration {
-            let downstream: Downstream
-            let closure: Closure
-        }
+    }
+}
+
+extension DeferredCompletion.Conduit {
+    /// Values needed for the subscription active state.
+    private struct Configuration {
+        let downstream: Downstream
+        let closure: DeferredCompletion.Closure
     }
 }
