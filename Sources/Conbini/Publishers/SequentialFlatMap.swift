@@ -3,41 +3,34 @@ import Foundation
 
 extension Publishers {
     /// Executes child publishers one at a time through the use of backpressure management.
+    /// ```
+    /// [firstEndpoint, secondEnpoint, thirdEndpoint]
+    ///     .publisher
+    ///     .sequentialFlatMap { $0 }
+    /// ```
     ///
-    /// If the upstream emits values without regard to backpressure (e.g. Subjects), `SequentialFlatMap` buffers them internally; however if a completion event is sent, the values in the buffer won't be executed. To have truly sequential event handling on non-supporting backpressure upstreams, use the buffer operator.
-    /// ```
-    /// let upstream = PassthroughSubject<Int,CustomError>()
-    /// let downstream = upstream
-    ///     .buffer(size: 100, prefetch: .keepFull, whenFull: .customError(CustomError())
-    ///     .sequentialFlatMap()
-    /// upstream.send(publisherA)
-    /// upstream.send(publisherB)
-    /// upstream.send(publisherC)
-    /// ```
-    /// Buffer isn't necessary for any operator that has support for backpressure (e.g. `Publishers.Sequence`).
-    /// ```
-    /// let upstream = [
-    ///     firstCallToEndpointPublisher,
-    ///     secondCallToEndpointPublisher,
-    ///     thirdCallToEndpointPublisher
-    /// ].publisher
-    /// let downstream = upstream.sequentialFlatMap()
-    /// ```
+    /// If the upstream emits values without regard to backpressure (e.g. `Subject`s), `SequentialFlatMap` buffers them internally and execute them as expected (i.e. sequentially).
     /// - attention: The stream only completes when both the upstream and the children publishers complete.
-    public struct SequentialFlatMap<Child,Upstream,Failure>: Publisher where Child:Publisher, Upstream:Publisher, Failure:Swift.Error, Upstream.Output==Child {
+    public struct SequentialFlatMap<Child,Upstream>: Publisher where Child:Publisher, Upstream:Publisher, Child.Failure==Upstream.Failure {
         public typealias Output = Child.Output
+        public typealias Failure = Child.Failure
         
         /// The publisher from which this publisher receives children.
-        public let upstream: Upstream
+        private let upstream: Upstream
+        /// The closure generating the publisher emitting downstream.
+        private let closure: (Upstream.Output) -> Child
         
-        /// Designated initializer passing the publisher emitting values received here.
+        /// Designated initializer passing the publisher emitting values received here and the closure creating the *child* publisher.
         /// - parameter upstream: The publisher from which this publisher receives children.
-        internal init(upstream: Upstream, failure: Failure.Type) {
+        /// - parameter transform: Closure in charge of transforming the upstream value into a new publisher.
+        /// - attention: Be mindful of variables stored strongly within the closure. The closure will be kept until a termination event (or cancel) reaches this publisher.
+        internal init(upstream: Upstream, transform: @escaping (Upstream.Output)->Child) {
             self.upstream = upstream
+            self.closure = transform
         }
         
         public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
-            let subscriber = UpstreamSubscriber(downstream: subscriber)
+            let subscriber = UpstreamSubscriber(conduit: .init(downstream: subscriber, closure: self.closure))
             upstream.subscribe(subscriber)
         }
     }
@@ -46,63 +39,63 @@ extension Publishers {
 extension Publishers.SequentialFlatMap {
     /// Subscription representing the `SequentialFlatMap` publisher.
     fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
-        /// Performant non-rentrant unfair lock.
-        var lock: UnsafeMutablePointer<os_unfair_lock>
-        /// The state managing the upstream and children subscriptions.
-        var state: State
+        typealias TransformClosure = (_ value: Upstream.Output) -> Child
+        
+        /// Enum listing all possible conduit states.
+        @LockableState var state: State<WaitConfiguration,ActiveConfiguration>
+        /// Debug identifier.
+        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
+        /// Shared variables between the conduit, upstream subscriber, and child subscriber.
+        var shared: LockableState<WaitConfiguration,ActiveConfiguration> { _state }
         
         /// Designated initializer passing the downstream subscriber.
         /// - parameter downstream: The `Subscriber` receiving the outcome of this *described* publisher.
-        init(downstream: Downstream) {
-            self.lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
-            self.lock.initialize(to: os_unfair_lock())
-            self.state = .awaitingSubscription(downstream: downstream)
+        init(downstream: Downstream, closure: @escaping TransformClosure) {
+            _state = .awaitingSubscription(.init(downstream: downstream, closure: closure))
         }
         
         deinit {
             self.cancel()
-            self.lock.deallocate()
+        }
+        
+        func cancel() {
+            guard case .active(let config) = _state.terminate() else { return }
+            if case .active(let child) = config.child { child.cancel() }
+            config.upstream?.cancel()
         }
         
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0 else { return }
             
-            os_unfair_lock_lock(self.lock)
-            guard let config = self.state.configuration else {
-                return os_unfair_lock_unlock(self.lock)
-            }
+            _state.lock()
+            guard let config = self.state.activeConfiguration else { return _state.unlock() }
             config.demand += demand
             
-            var action: Either<Subscription,Child>? = nil
-            switch config.childState {
-            case .active(let childStream):
-                action = .left(childStream)
-                config.demand -= 1
-            case .idle where config.waitingPublishers.isEmpty:
-                action = config.upstream.map { .left($0) }
-            case .idle:
-                action = .right(config.waitingPublishers.removeFirst())
-                config.childState = .awaitingSubscription
-            case .awaitingSubscription: break
+            let action: RequestAction?
+            switch config.child {
+            case .active(let child):
+                action = .signal(subscription: child)
+                config.demand -= 1      // -todo: Demand is being passed to a child and it might not be used
+            case .terminated where config.waitingQueue.isEmpty:
+                action = .signal(subscription: config.upstream)
+            case .terminated:
+                action = .generateChild(value: config.waitingQueue.removeFirst(), closure: config.closure)
+                config.child = .awaitingSubscription(())
+            case .awaitingSubscription:
+                action = nil
             }
-            os_unfair_lock_unlock(self.lock)
-
+            _state.unlock()
+            
             switch action {
-            case .left(let subscription): subscription.request(.max(1))
-            case .right(let publisher): publisher.subscribe(ChildSubscriber(conduit: self))
+            case .signal(let subscription): subscription?.request(.max(1))
+            case .generateChild(let value, let closure): closure(value).subscribe(ChildSubscriber(conduit: self))
             case .none: break
             }
         }
         
-        func cancel() {
-            os_unfair_lock_lock(self.lock)
-            let state = self.state
-            self.state = .terminated
-            os_unfair_lock_unlock(self.lock)
-            
-            guard case .active(let configuration) = state else { return }
-            configuration.childState.subscription?.cancel()
-            configuration.upstream?.cancel()
+        private enum RequestAction {
+            case signal(subscription: Subscription?)
+            case generateChild(value: Upstream.Output, closure: TransformClosure)
         }
     }
 }
@@ -112,69 +105,57 @@ extension Publishers.SequentialFlatMap {
     private struct UpstreamSubscriber<Downstream>: Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Strong bond to the `Conduit` instance, so it is kept alive between upstream subscription and the subscription acknowledgement.
         let conduit: Conduit<Downstream>
+        /// Debug identifier.
+        var combineIdentifier: CombineIdentifier { self.conduit.combineIdentifier }
         
         /// Designated initializer for this helper establishing the strong bond between the `Conduit` and the created helper.
-        init(downstream: Downstream) {
-            self.conduit = .init(downstream: downstream)
-        }
-        
-        var combineIdentifier: CombineIdentifier {
-            self.conduit.combineIdentifier
+        init(conduit: Conduit<Downstream>) {
+            self.conduit = conduit
         }
         
         func receive(subscription: Subscription) {
-            os_unfair_lock_lock(self.conduit.lock)
-            switch self.conduit.state {
-            case .awaitingSubscription(let downstream):
-                self.conduit.state = .active(.init(upstream: subscription, downstream: downstream))
-                os_unfair_lock_unlock(self.conduit.lock)
-                downstream.receive(subscription: self.conduit)
-            case .terminated: os_unfair_lock_unlock(self.conduit.lock)
-            case .active: fatalError("Combine assures a second subscription won't be ever received")
-            }
+            let config = self.conduit.shared.activate { .init(upstream: subscription, downstream: $0.downstream, closure: $0.closure) }
+            config?.downstream.receive(subscription: self.conduit)
         }
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            os_unfair_lock_lock(self.conduit.lock)
-            guard let config = self.conduit.state.configuration else {
-                os_unfair_lock_unlock(self.conduit.lock)
-                return .none
-            }
+            let shared = self.conduit.shared
             
-            config.waitingPublishers.append(input)
-            guard case .idle = config.childState, config.demand > 0 else {
-                os_unfair_lock_unlock(self.conduit.lock)
-                return .none
-            }
+            shared.lock()
+            guard let config = shared.wrappedValue.activeConfiguration else { shared.unlock(); return .none }
             
-            let child = config.waitingPublishers.removeFirst()
-            config.childState = .awaitingSubscription
-            os_unfair_lock_unlock(self.conduit.lock)
+            config.waitingQueue.append(input)
+            guard case .terminated = config.child, config.demand > 0 else { shared.unlock(); return .none }
             
-            child.subscribe(ChildSubscriber(conduit: self.conduit))
+            let closure = config.closure
+            let value = config.waitingQueue.removeFirst()
+            config.child = .awaitingSubscription(())
+            shared.unlock()
+            
+            closure(value).subscribe(ChildSubscriber(conduit: self.conduit))
             return .none
         }
         
         func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            os_unfair_lock_lock(self.conduit.lock)
-            guard let config = self.conduit.state.configuration else {
-                return os_unfair_lock_unlock(self.conduit.lock)
-            }
+            let shared = self.conduit.shared
+            
+            shared.lock()
+            guard let config = shared.wrappedValue.activeConfiguration else { return shared.unlock() }
             
             switch completion {
             case .failure(let upstreamError):
                 self.conduit.state = .terminated
-                os_unfair_lock_unlock(self.conduit.lock)
-                config.childState.subscription?.cancel()
-                config.downstream.receive(completion: .failure(upstreamError as! Downstream.Failure))
+                shared.unlock()
+                if case .active(let child) = config.child { child.cancel() }
+                config.downstream.receive(completion: .failure(upstreamError))
             case .finished:
-                if config.waitingPublishers.isEmpty, case .idle = config.childState {
+                if config.waitingQueue.isEmpty, case .terminated = config.child {
                     self.conduit.state = .terminated
-                    os_unfair_lock_unlock(self.conduit.lock)
+                    shared.unlock()
                     config.downstream.receive(completion: .finished)
                 } else {
                     config.upstream = nil
-                    os_unfair_lock_unlock(self.conduit.lock)
+                    shared.unlock()
                 }
             }
         }
@@ -186,89 +167,83 @@ extension Publishers.SequentialFlatMap {
     private struct ChildSubscriber<Downstream>: Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Strong bond to the `Conduit` instance, so it is kept alive between subscription and the subscription acknowledgement.
         let conduit: Conduit<Downstream>
+        /// Debug identifier.
+        var combineIdentifier: CombineIdentifier { self.conduit.combineIdentifier }
         
         /// Designated initializer for this helper establishing the strong bond between the `Conduit` and the created helper.
         init(conduit: Conduit<Downstream>) {
             self.conduit = conduit
         }
         
-        var combineIdentifier: CombineIdentifier {
-            self.conduit.combineIdentifier
-        }
-        
         func receive(subscription: Subscription) {
-            os_unfair_lock_lock(self.conduit.lock)
-            guard let config = self.conduit.state.configuration else {
-                return os_unfair_lock_unlock(self.conduit.lock)
-            }
+            let shared = self.conduit.shared
             
-            guard case .awaitingSubscription = config.childState else {
-                fatalError()
-            }
+            shared.lock()
+            guard let config = shared.wrappedValue.activeConfiguration else { return shared.unlock() }
+            guard case .awaitingSubscription = config.child else { fatalError() }
             
-            config.childState = .active(child: subscription)
-            guard config.demand > 0 else {
-                return os_unfair_lock_unlock(self.conduit.lock)
-            }
+            config.child = .active(subscription)
+            guard config.demand > 0 else { return shared.unlock() }
+            
             config.demand -= 1
-            os_unfair_lock_unlock(self.conduit.lock)
+            shared.unlock()
             subscription.request(.max(1))
         }
         
         func receive(_ input: Child.Output) -> Subscribers.Demand {
-            os_unfair_lock_lock(self.conduit.lock)
-            guard let c = self.conduit.state.configuration,
-                  case .active = c.childState else {
-                os_unfair_lock_unlock(self.conduit.lock)
+            let shared = self.conduit.shared
+            
+            shared.lock()
+            guard let configFirst = shared.wrappedValue.activeConfiguration, case .active = configFirst.child else {
+                shared.unlock()
                 return .none
             }
             
-            let downstream = c.downstream
-            os_unfair_lock_unlock(self.conduit.lock)
+            let downstream = configFirst.downstream
+            shared.unlock()
             let receivedDemand = downstream.receive(input)
             
-            os_unfair_lock_lock(self.conduit.lock)
-            guard case .active(let config) = self.conduit.state,
-                  case .active = config.childState else {
-                os_unfair_lock_unlock(self.conduit.lock)
+            shared.lock()
+            guard let configSecond = shared.wrappedValue.activeConfiguration, case .active = configSecond.child else {
+                shared.unlock()
                 return .none
             }
             
-            config.demand += receivedDemand
-            guard config.demand > 0 else {
-                os_unfair_lock_unlock(self.conduit.lock)
-                return .none
-            }
+            configSecond.demand += receivedDemand
+            guard configSecond.demand > 0 else { shared.unlock(); return .none }
             
-            config.demand -= 1
-            os_unfair_lock_unlock(self.conduit.lock)
+            configSecond.demand -= 1
+            shared.unlock()
             return .max(1)
         }
         
         func receive(completion: Subscribers.Completion<Child.Failure>) {
-            os_unfair_lock_lock(self.conduit.lock)
-            guard let config = self.conduit.state.configuration else {
-                return os_unfair_lock_unlock(self.conduit.lock)
-            }
+            let shared = self.conduit.shared
+            
+            shared.lock()
+            guard let config = shared.wrappedValue.activeConfiguration else { return shared.unlock() }
             
             switch completion {
             case .failure(let error):
                 self.conduit.state = .terminated
-                os_unfair_lock_unlock(self.conduit.lock)
-                config.downstream.receive(completion: .failure(error as! Downstream.Failure))
+                shared.unlock()
+                config.downstream.receive(completion: .failure(error))
             case .finished:
-                if !config.waitingPublishers.isEmpty {
-                    config.childState = .awaitingSubscription
-                    let publisher = config.waitingPublishers.removeFirst()
-                    os_unfair_lock_unlock(self.conduit.lock)
-                    publisher.subscribe(ChildSubscriber(conduit: self.conduit))
+                if !config.waitingQueue.isEmpty {
+                    config.child = .awaitingSubscription(())
+                    
+                    let closure = config.closure
+                    let value = config.waitingQueue.removeFirst()
+                    shared.unlock()
+                    
+                    closure(value).subscribe(ChildSubscriber(conduit: self.conduit))
                 } else if let upstream = config.upstream {
-                    config.childState = .idle
-                    os_unfair_lock_unlock(self.conduit.lock)
+                    config.child = .terminated
+                    shared.unlock()
                     upstream.request(.max(1))
                 } else {
                     self.conduit.state = .terminated
-                    os_unfair_lock_unlock(self.conduit.lock)
+                    shared.unlock()
                     config.downstream.receive(completion: .finished)
                 }
             }
@@ -277,68 +252,36 @@ extension Publishers.SequentialFlatMap {
 }
 
 extension Publishers.SequentialFlatMap.Conduit {
-    /// The state managing the upstream and children subscriptions.
-    fileprivate enum State {
-        /// The `Conduit` has been initialized, but it is not yet connected to the upstream.
-        case awaitingSubscription(downstream: Downstream)
-        /// The `Conduit` is connected to the upstream and it is receiving events.
-        case active(Configuration)
-        /// The `Conduit` has been cancelled, or it has been terminated (whether successfully or not).
-        case terminated
-        
-        /// - warning: This property crashes for states `.awaitingSubscription`
-        var configuration: Configuration? {
-            switch self {
-            case .active(let config): return config
-            case .terminated: return nil
-            case .awaitingSubscription: fatalError()
-            }
-        }
-    }
-}
-
-extension Publishers.SequentialFlatMap.Conduit {
-    /// Holds information necessary to manage the `SequentialFlatMap` subscription once it has been activated.
-    final class Configuration {
-        /// The subscription used to manage the upstream back-pressure.
-        var upstream: Subscription?
+    /// Values need for the subscription awaiting state.
+    struct WaitConfiguration {
         /// The subscriber receiving the input and completion.
         let downstream: Downstream
+        /// The closure generating the child publisher.
+        let closure: TransformClosure
+    }
+    
+    /// Values needed for the subscription active state.
+    final class ActiveConfiguration {
+        /// The subscription used to manage the upstream back-pressure.
+        var upstream: Subscription?
         /// The child state managing the sequential children.
-        var childState: ChildState
+        var child: State<Void,Subscription>
+        /// The subscriber receiving the input and completion.
+        let downstream: Downstream
+        /// The closure generating the child publisher.
+        let closure: TransformClosure
         /// The children that has been sent but not yet executed.
-        var waitingPublishers: [Child]
+        var waitingQueue: [Upstream.Output]
         /// The demand requested by the downstream so far.
         var demand: Subscribers.Demand
         /// Designated initializer providing the required upstream and downstream. All other information is set with the defaults.
-        init(upstream: Subscription, downstream: Downstream) {
+        init(upstream: Subscription, downstream: Downstream, closure: @escaping TransformClosure) {
             self.upstream = upstream
+            self.child = .terminated
             self.downstream = downstream
-            self.childState = .idle
-            self.waitingPublishers = []
+            self.closure = closure
+            self.waitingQueue = []
             self.demand = .none
         }
-    }
-}
-
-/// The state managing the children subscriptions (exclusively).
-private enum ChildState {
-    /// There is no child expected or active at the moment.
-    case idle
-    /// A subscription to a child publisher has been set, but no acknoledgement has been yet received.
-    case awaitingSubscription
-    /// The child publisher is active and emitting values.
-    case active(child: Subscription)
-    
-    /// Returns a child subscription if there is a child currently active.
-    var subscription: Subscription? {
-        guard case .active(let child) = self else { return nil }
-        return child
-    }
-    
-    /// Boolean indicating whether the child is currently on "running mode".
-    var isActive: Bool {
-        guard case .active = self else { return false }
-        return true
     }
 }

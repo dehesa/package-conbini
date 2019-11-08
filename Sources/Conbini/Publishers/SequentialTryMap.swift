@@ -3,6 +3,8 @@ import Foundation
 
 extension Publishers {
     /// Transforms all elements from the upstream publisher with a provided closure.
+    ///
+    /// The publisher might fail because of an error from upstream is received or because the promise failed. Both errors might be of different types and that is way this publisher's failure type is `Swift.Error`
     public struct SequentialTryMap<Upstream,Output,TransformFailure>: Publisher where Upstream:Publisher, TransformFailure:Swift.Error {
         public typealias Failure = Swift.Error
         

@@ -18,6 +18,7 @@ extension Publisher {
     /// - parameter value: The value received from upstream.
     /// - parameter promise: The closure to call once the transformation is done.
     /// - parameter result: The value that will be sent downstream.
+    /// - returns: A publisher with output `T` and failure `Upstream.Failure`.
     public func asyncMap<T>(_ transform: @escaping (_ value: Output, _ promise: @escaping (_ result: T)->Void) -> Void) -> Publishers.SequentialMap<Self,T> {
         .init(upstream: self) { (value, promise) in
             transform(value) { (result) in
@@ -46,6 +47,7 @@ extension Publisher {
     /// - parameter value: The value received from upstream.
     /// - parameter promise: The closure to call once the transformation is done.
     /// - parameter result: A `Result` wrapping the transformed element or a failure. It is worth noticing, the result failure type doesn't have to be of the same type as the receiving publisher.
+    /// - returns: A publisher with output `T` and failure `Swift.Error`.
     public func asyncTryMap<T,F>(failure: F.Type = F.self, _ transform: @escaping (_ value: Output, _ promise: @escaping (_ result: Result<T,F>)->Void) -> Void) -> Publishers.SequentialTryMap<Self,T,F> {
         .init(upstream: self) { (value, promise) in
             transform(value) { (result) in
@@ -74,6 +76,7 @@ extension Publisher {
     /// - parameter promise: The closure to call everytime a value is sent downstream.
     /// - parameter result: The value that will be sent downstream.
     /// - parameter request: Whether the closure want to continue sending values or it is done.
+    /// - returns: A publisher with output `T` and failure `Upstream.Failure`.
     public func sequentialMap<T>(_ transform: @escaping (_ value: Output, _ promise: @escaping (_ result: T, _ request: Async.Request)->Async.Permission) -> Void) -> Publishers.SequentialMap<Self,T> {
         .init(upstream: self, transform: transform)
     }
@@ -102,64 +105,16 @@ extension Publisher {
     /// - parameter promise: The promise to call once the transformation is done.
     /// - parameter result: The transformation result.
     /// - parameter request: Whether the closure want to continue sending values or it is done.
+    /// - returns: A publisher with output `T` and failure `Swift.Error`.
     public func sequentialTryMap<T,F>(failure: F.Type = F.self, _ transform: @escaping (_ value: Output, _ promise: @escaping (_ result: Result<T,F>, _ request: Async.Request)->Async.Permission) -> Void) -> Publishers.SequentialTryMap<Self,T,F> {
         .init(upstream: self, transform: transform)
     }
-}
-
-extension Publisher where Output:Publisher {
-    /// Ask the upstream for one publisher at a time. This operator executes a *child* publisher and once the child has completed successfully, it asks for the next one.
-    ///
-    /// If the upstream emits values without regard to backpressure (e.g. Subjects), `SequentialFlatMap` buffers them internally; however if a completion event is sent, the values in the buffer won't be executed. To have truly sequential event handling on non-supporting backpressure upstreams, use the buffer operator.
-    /// ```
-    /// let upstream = PassthroughSubject<Int,CustomError>()
-    /// let downstream = upstream
-    ///     .buffer(size: 100, prefetch: .keepFull, whenFull: .customError(CustomError())
-    ///     .sequentialFlatMap()
-    /// upstream.send(publisherA)
-    /// upstream.send(publisherB)
-    /// upstream.send(publisherC)
-    /// ```
-    /// Buffer isn't necessary for any operator that has support for backpressure (e.g. `Publishers.Sequence`).
-    /// ```
-    /// let upstream = [
-    ///     firstCallToEndpointPublisher,
-    ///     secondCallToEndpointPublisher,
-    ///     thirdCallToEndpointPublisher
-    /// ].publisher
-    /// let downstream = upstream.sequentialFlatMap()
-    /// ```
-    /// - attention: Any error emitted by the upstream or any of the child publishers is forwarded immediately downstream, effectively shutting down this stream. Also, this stream only successfully completes when both the upstream and the children publishers complete.
-    /// - returns: A publisher executing the received value publishers one at a time.
-    public func sequentialFlatMap() -> Publishers.SequentialFlatMap<Output,Self,Swift.Error> {
-        .init(upstream: self, failure: Swift.Error.self)
-    }
     
-    /// Ask the upstream for one publisher at a time. This operator executes a *child* publisher and once the child has completed successfully, it asks for the next one.
+    /// Transforms all elements from an upstream publisher into a new or existing publisher and execute them sequential.
     ///
-    /// If the upstream emits values without regard to backpressure (e.g. Subjects), `SequentialFlatMap` buffers them internally; however if a completion event is sent, the values in the buffer won't be executed. To have truly sequential event handling on non-supporting backpressure upstreams, use the buffer operator.
-    /// ```
-    /// let upstream = PassthroughSubject<Int,CustomError>()
-    /// let downstream = upstream
-    ///     .buffer(size: 100, prefetch: .keepFull, whenFull: .customError(CustomError())
-    ///     .sequentialFlatMap()
-    /// upstream.send(publisherA)
-    /// upstream.send(publisherB)
-    /// upstream.send(publisherC)
-    /// ```
-    /// Buffer isn't necessary for any operator that has support for backpressure (e.g. `Publishers.Sequence`).
-    /// ```
-    /// let upstream = [
-    ///     firstCallToEndpointPublisher,
-    ///     secondCallToEndpointPublisher,
-    ///     thirdCallToEndpointPublisher
-    /// ].publisher
-    /// let downstream = upstream.sequentialFlatMap()
-    /// ```
-    /// - attention: Any error emitted by the upstream or any of the child publishers is forwarded immediately downstream, effectively shutting down this stream. Also, this stream only successfully completes when both the upstream and the children publishers complete.
-    /// - parameter failure: The type of error output from this publisher. Any error received from upstream or child streams will be force cast to this type.It is useful when either the upstream or the child stream never fails or both have the same error type, so you can forward a typed error instead of a `Swift.Error`.
-    /// - returns: A publisher executing the received value publishers one at a time.
-    public func sequentialFlatMap<Error>(failure: Error.Type) -> Publishers.SequentialFlatMap<Output,Self,Error> {
-        .init(upstream: self, failure: Error.self)
+    /// This operator utilizes a mix of backpressure and buffering to manage the elements arriving to it. Once a value arrives, it is transformed and executed. If another value arrived before the previously generated publisher is completed; that value is stored in a temporary buffer.
+    /// - parameter closure: A closure receiving the upstream emitting value and generating a publisher to be executed.
+    public func sequentialFlatMap<Child>(_ transform: @escaping (_ value: Output)->Child) -> Publishers.SequentialFlatMap<Child,Self> where Child:Publisher, Child.Failure==Failure {
+        .init(upstream: self, transform: transform)
     }
 }
