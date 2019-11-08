@@ -3,6 +3,8 @@ import Foundation
 
 extension Publishers {
     /// Transforms all elements from the upstream publisher with a provided closure.
+    ///
+    /// The publisher only fails if the upstream fails.
     public struct SequentialMap<Upstream,Output>: Publisher where Upstream:Publisher {
         public typealias Failure = Upstream.Failure
 

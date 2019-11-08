@@ -75,11 +75,11 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     ```swift
     [enpointA, endpointB, endpointC].publisher
-        .sequentialFlatMap()
+        .sequentialFlatMap { $0 }
     // Downstream will receive: [resultEndpointA, resultEndpointB, resultEndpointC]
     ```
 
-    This publisher works "as expected" even with upstream publishers that disregard backpressure (e.g. `PassthroughSubject`). It buffers publishers internally and execute them depending on the subscriber's demand and whether a publisher is currently _in operation_. Do note, that if a failure completion is received, the whole publisher will finish and any publisher being buffered won't have a chance to execute. This is a similar behavior as Combine's `buffer()` operator.
+    This publisher works "as expected" even with upstream publishers that disregard backpressure (e.g. `PassthroughSubject`). It buffers values internally and execute the generated publisher depending on the subscriber's demand and whether a publisher is currently _in operation_. Do note, that if a failure completion is received, the whole publisher will finish and any publisher being buffered won't have a chance to execute. This is a similar behavior as Combine's `buffer()` operator.
 
 *   `result` subscribes to the receiving publisher and execute the provided closure when a single value followed by a successful completion is received.
     In case of failure, the handler is executed with such failure.

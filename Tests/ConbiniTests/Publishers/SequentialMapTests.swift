@@ -94,7 +94,7 @@ extension SequentialMapTests {
                 Just(4).setFailureType(to: CustomError.self).eraseToAnyPublisher()
             ].publisher
             .setFailureType(to: CustomError.self)
-            .sequentialFlatMap(failure: CustomError.self)
+            .sequentialFlatMap { $0 }
 
         var received: [Int] = .init()
         upstream.asyncMap { (value, promise) in
@@ -122,7 +122,7 @@ extension SequentialMapTests {
                 Just(4).setFailureType(to: CustomError.self).eraseToAnyPublisher()
             ].publisher
             .setFailureType(to: CustomError.self)
-            .sequentialFlatMap(failure: CustomError.self)
+            .sequentialFlatMap { $0 }
 
         var received: [Int] = .init()
         upstream.asyncTryMap(failure: Swift.Error.self) { (value, promise) in
@@ -137,7 +137,7 @@ extension SequentialMapTests {
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received, [10, 20])
     }
-        
+
     /// Test a sequential multi-map operation with the difference that is asynchronous an that it fails in the middle.
     func testSequentialMapFailure() {
         let queue = DispatchQueue.main
@@ -150,7 +150,7 @@ extension SequentialMapTests {
                 Just(4).setFailureType(to: CustomError.self).eraseToAnyPublisher()
             ].publisher
             .setFailureType(to: CustomError.self)
-            .sequentialFlatMap(failure: CustomError.self)
+            .sequentialFlatMap { $0 }
 
         var received: [Int] = .init()
         upstream.sequentialMap { (value, promise) in
