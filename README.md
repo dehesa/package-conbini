@@ -70,7 +70,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     }
     ```
 
-*   `sequentialFlatMap` performs a similar operation to `flatMap` (i.e. flattens/executes a publisher emitted from upstream); but instead of accepting _willy-nilly_ all emitted publishers, it only requests one value at a time (through backpressure mechanisms).
+-   `sequentialFlatMap` performs a similar operation to `flatMap` (i.e. flattens/executes a publisher emitted from upstream); but instead of accepting _willy-nilly_ all emitted publishers, it only requests one value at a time (through backpressure mechanisms).
     Useful for operations/enpoints that must be performed sequentially.
 
     ```swift
@@ -81,7 +81,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     This publisher works "as expected" even with upstream publishers that disregard backpressure (e.g. `PassthroughSubject`). It buffers values internally and execute the generated publisher depending on the subscriber's demand and whether a publisher is currently _in operation_. Do note, that if a failure completion is received, the whole publisher will finish and any publisher being buffered won't have a chance to execute. This is a similar behavior as Combine's `buffer()` operator.
 
-*   `result` subscribes to the receiving publisher and execute the provided closure when a single value followed by a successful completion is received.
+-   `result` subscribes to the receiving publisher and execute the provided closure when a single value followed by a successful completion is received.
     In case of failure, the handler is executed with such failure.
 
     ```swift
@@ -95,20 +95,14 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 ## Publishers
 
--   `Complete` never emits a value and just completes (whether successfully or with a failure).
-    It offers similar functionality to `Empty` and `Failure`, but in a single type. Also, the completion only happens once a _greater-than-zero_ demand is requested.
-    ```swift
-    let publisherA = Complete<Int,CustomError>(error: nil)
-    let publisherB = Complete(error: CustomError())
-    ```
-    There are two more convenience initializers setting the publisher's `Output` and/or `Failure` to `Never` if the generic types are not explicitly stated.
 -   `Deferred...` publishers accept a closure that is executed once a _greater-than-zero_ demand is requested.
     They have several flavors:
 
-    -   `DeferredValue` emits a single value and then completes; however, the value is not provided/cached, but instead a closure which will generate the emitted value is executed per subscription received.
+    -   `DeferredValue` emits a single value and then completes; however, the value is not provided/cached, but instead a closure which will generate the emitted value is executed once the subscription is received.
+        There is also a `Try` variant which enables you to `throw` from within the closure, but it loses the concrete error type (i.e. gets converted to `Swift.Error`).
 
         ```swift
-        let publisher = DeferredValue {
+        let publisher = DeferredTryValue {
             return try someHeavyCalculations()
         }
         ```
@@ -123,9 +117,10 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
         ```
 
     -   `DeferredCompletion` offers the same functionality as `DeferredValue`, but the closure only generates a completion event.
+        There is also a `Try` variant which enables you to `throw` from within the closure, but it loses the concrete error type (i.e. gets converted to `Swift.Error`).
 
         ```swift
-        let publisher = DeferredCompletion {
+        let publisher = DeferredTryCompletion {
           try somethingThatMightFail()
         }
         ```
@@ -142,7 +137,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     There are several reason for these publishers to exist instead of using other `Combine`-provided closure such as `Just`, `Future`, or `Deferred`:
 
     -   `Future` publishers execute their provided closure right away (upon initialization) and then cache the returned value. That value is then forwarded for any future subscription.
-        `Deferred...` closures await for subscriptions and a _greater-than-zero_ demand before executing. This also means, the closure will re-execute for any new subscription.
+        `Deferred...` closures await for subscriptions and a _greater-than-zero_ demand before executing. This also means, the closure will re-execute for any new subscriber.
     -   `Deferred` is the most similar in functionality, but it only accepts a publisher.
 
 -   `Then` provides the functionality of the `then` operator.

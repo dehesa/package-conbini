@@ -2,8 +2,8 @@ import XCTest
 import Conbini
 import Combine
 
-/// Tests the correct behavior of the `Complete` publisher.
-final class CompleteTests: XCTestCase {
+/// Tests the correct behavior of the `DeferredComplete` publisher.
+final class DeferredCompleteTests: XCTestCase {
     /// A convenience storage of cancellables.
     private var cancellables = Set<AnyCancellable>()
     
@@ -13,10 +13,10 @@ final class CompleteTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testSuccessfulCompletion", testSuccessfulCompletion),
+        ("testSuccessfulEmptyCompletion", testSuccessfulEmptyCompletion),
+        ("testSuccessfulClosureCompletion", testSuccessfulClosureCompletion),
         ("testFailedCompletion", testFailedCompletion),
-        ("testSuccessfulNeverCompletion", testSuccessfulNeverCompletion),
-        ("testFailedNeverCompletion", testFailedNeverCompletion),
+        ("testFailedClosureCompletion", testFailedClosureCompletion),
         ("testPublisherPipeline", testPublisherPipeline)
     ]
     
@@ -24,12 +24,12 @@ final class CompleteTests: XCTestCase {
     private struct CustomError: Swift.Error {}
 }
 
-extension CompleteTests {
-    /// Tests a successful completion of the `Complete` publisher.
-    func testSuccessfulCompletion() {
+extension DeferredCompleteTests {
+    /// Tests a successful completion of the publisher.
+    func testSuccessfulEmptyCompletion() {
         let exp = self.expectation(description: "Publisher completes successfully")
         
-        Complete<Int,CustomError>(error: nil)
+        DeferredComplete<Int,CustomError>()
             .handleEvents(receiveCancel: { XCTFail("The publisher has cancelled before completion") })
             .sink(receiveCompletion: {
                 guard case .finished = $0 else { return XCTFail("The successful completion publisher has failed!") }
@@ -40,11 +40,26 @@ extension CompleteTests {
         self.wait(for: [exp], timeout: 0.2)
     }
     
-    /// Tests a failure completion of the `Complete` publisher.
+    /// Tests a successful closure completion.
+    func testSuccessfulClosureCompletion() {
+        let exp = self.expectation(description: "Publisher completes successfully")
+        
+        DeferredComplete<Int,CustomError> { return nil }
+            .handleEvents(receiveCancel: { XCTFail("The publisher has cancelled before completion") })
+            .sink(receiveCompletion: {
+                guard case .finished = $0 else { return XCTFail("The successful completion publisher has failed!") }
+                exp.fulfill()
+            }, receiveValue: { _ in XCTFail("The empty complete publisher has emitted a value!") })
+            .store(in: &self.cancellables)
+        
+        self.wait(for: [exp], timeout: 0.2)
+    }
+    
+    /// Tests a failure completion from an autoclosure.
     func testFailedCompletion() {
         let exp = self.expectation(description: "Publisher completes with a failure")
         
-        Complete<Int,CustomError>(error: CustomError())
+        DeferredComplete<Int,CustomError>(error: .init())
             .handleEvents(receiveCancel: { XCTFail("The publisher has cancelled before completion") })
             .sink(receiveCompletion: {
                 guard case .failure = $0 else { return XCTFail("The failed completion publisher has completed successfully!") }
@@ -54,27 +69,12 @@ extension CompleteTests {
         
         self.wait(for: [exp], timeout: 0.2)
     }
-
-    /// Tests a successful completion of the `Complete` publisher using the convenience `<Never,Never>` initializer.
-    func testSuccessfulNeverCompletion() {
-        let exp = self.expectation(description: "Publisher completes successfully")
-        
-        Complete()
-            .handleEvents(receiveCancel: { XCTFail("The publisher has cancelled before completion") })
-            .sink(receiveCompletion: {
-                guard case .finished = $0 else { return XCTFail("The successful completion publisher has failed!") }
-                exp.fulfill()
-            }, receiveValue: { _ in XCTFail("The empty complete publisher has emitted a value!") })
-            .store(in: &self.cancellables)
-        
-        self.wait(for: [exp], timeout: 0.2)
-    }
     
-    /// Tests a failure completion of the `Complete` publisher using the convenience `<Never,Error>` initializer.
-    func testFailedNeverCompletion() {
+    /// Tests a failure completion from the full-fledge closure.
+    func testFailedClosureCompletion() {
         let exp = self.expectation(description: "Publisher completes with a failure")
         
-        Complete(error: CustomError())
+        DeferredComplete(output: Int.self) { return CustomError() }
             .handleEvents(receiveCancel: { XCTFail("The publisher has cancelled before completion") })
             .sink(receiveCompletion: {
                 guard case .failure = $0 else { return XCTFail("The failed completion publisher has completed successfully!") }
@@ -89,7 +89,7 @@ extension CompleteTests {
     func testPublisherPipeline() {
         let exp = self.expectation(description: "Publisher completes successfully")
 
-        Complete<Int,CustomError>(error: nil)
+        DeferredComplete<Int,CustomError>()
             .map { $0 * 2 }
             .handleEvents(receiveCancel: { XCTFail("The publisher has cancelled before completion") })
             .sink(receiveCompletion: {
