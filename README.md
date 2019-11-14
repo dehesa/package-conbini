@@ -17,6 +17,18 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     }
     ```
 
+-   `result` subscribes to the receiving publisher and executes the provided closure when a single value followed by a successful completion is received.
+    In case of failure, the handler is executed with such failure.
+
+    ```swift
+    let cancellable = serverRequest.result { (result) in
+        switch result {
+        case .success(let value): ...
+        case .failure(let error): ...
+        }
+    }
+    ```
+
 -   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement (similar to `Future`).
     Useful when asynchronous operations must be performed sequentially on a value.
 
@@ -81,29 +93,25 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     This publisher works "as expected" even with upstream publishers that disregard backpressure (e.g. `PassthroughSubject`). It buffers values internally and execute the generated publisher depending on the subscriber's demand and whether a publisher is currently _in operation_. Do note, that if a failure completion is received, the whole publisher will finish and any publisher being buffered won't have a chance to execute. This is a similar behavior as Combine's `buffer()` operator.
 
--   `result` subscribes to the receiving publisher and execute the provided closure when a single value followed by a successful completion is received.
-    In case of failure, the handler is executed with such failure.
-
-    ```swift
-    let cancellable = serverRequest.result { (result) in
-        switch result {
-        case .success(let value): ...
-        case .failure(let error): ...
-        }
-    }
-    ```
-
 ## Publishers
 
 -   `Deferred...` publishers accept a closure that is executed once a _greater-than-zero_ demand is requested.
     They have several flavors:
 
-    -   `DeferredValue` emits a single value and then completes; however, the value is not provided/cached, but instead a closure which will generate the emitted value is executed once the subscription is received.
-        There is also a `Try` variant which enables you to `throw` from within the closure, but it loses the concrete error type (i.e. gets converted to `Swift.Error`).
+    -   `DeferredValue` emits a single value and then completes.
+        The value is not provided/cached, but instead a closure will generate it. The closure is executed once a positive subscription is received.
+
+        ```swift
+        let publisher = DeferredValue<Int,CustomError> {
+            return intenseProcessing()
+        }
+        ```
+
+        A `Try` variant is also offered, enabling you to `throw` from within the closure. It loses the concrete error type (i.e. it gets converted to `Swift.Error`).
 
         ```swift
         let publisher = DeferredTryValue {
-            return try someHeavyCalculations()
+            return try intenseProcessing()
         }
         ```
 
@@ -117,11 +125,18 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
         ```
 
     -   `DeferredCompletion` offers the same functionality as `DeferredValue`, but the closure only generates a completion event.
-        There is also a `Try` variant which enables you to `throw` from within the closure, but it loses the concrete error type (i.e. gets converted to `Swift.Error`).
+
+        ```swift
+        let publisher = DeferredCompletion {
+            return errorOrNil
+        }
+        ```
+
+        A `Try` variant is also offered, enabling you to `throw` from within the closure; but it loses the concrete error type (i.e. gets converted to `Swift.Error`).
 
         ```swift
         let publisher = DeferredTryCompletion {
-          try somethingThatMightFail()
+            try somethingThatMighFail()
         }
         ```
 
@@ -130,6 +145,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
         ```swift
         let publisher = DeferredPassthrough { (subject) in
           subject.send(something)
+          subject.send(somethingElse)
           subject.send(completion: .finished)
         }
         ```
@@ -188,7 +204,7 @@ Conbini provides convenience subscribers to ease code testing. These subscribers
 
 ## Quirks
 
-Conbini testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
+The testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
 
 -   `import Conbini` includes all code excepts the testing conveniences.
 -   `import ConbiniForTesting` includes everything.
