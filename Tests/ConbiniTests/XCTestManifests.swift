@@ -6,9 +6,11 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(ResultOpTests.allTests),
         testCase(ThenOpTests.allTests),
         
-        testCase(CompleteTests.allTests),
         testCase(DeferredCompleteTests.allTests),
+        testCase(DeferredFutureTests.allTests),
         testCase(DeferredResultTests.allTests),
+        testCase(DeferredTryCompleteTests.allTests),
+        testCase(DeferredTryValueTests.allTests),
         testCase(DeferredValueTests.allTests),
         testCase(SequentialFlatMapTests.allTests),
         testCase(SequentialMapTests.allTests),

@@ -5,7 +5,7 @@ import Combine
 /// This publisher is used at the origin of a publisher chain and it only provides the value when it receives a request with a demand greater than zero.
 public struct DeferredTryComplete<Output>: Publisher {
     public typealias Failure = Swift.Error
-    /// The closure type being store for delated execution.
+    /// The closure type being store for delayed execution.
     public typealias Closure = () throws -> Void
     
     /// Deferred closure.

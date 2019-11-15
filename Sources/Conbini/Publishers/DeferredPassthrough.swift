@@ -9,7 +9,7 @@ import Foundation
 /// - The given closure will receive the `Passthrough` at the origin of the chain so it can be used to send information downstream.
 /// - The closure will get *cleaned up* as soon as it returns.
 public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
-    /// The closure type being store for delated execution.
+    /// The closure type being store for delayed execution.
     public typealias Closure = (PassthroughSubject<Output,Failure>) -> Void
     
     /// Publisher's closure storage.
