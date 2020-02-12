@@ -43,8 +43,6 @@ extension Publishers.SequentialFlatMap {
         
         /// Enum listing all possible conduit states.
         @LockableState var state: State<WaitConfiguration,ActiveConfiguration>
-        /// Debug identifier.
-        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
         /// Shared variables between the conduit, upstream subscriber, and child subscriber.
         var shared: LockableState<WaitConfiguration,ActiveConfiguration> { _state }
         

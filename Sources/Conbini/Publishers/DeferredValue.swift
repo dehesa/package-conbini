@@ -25,7 +25,7 @@ public struct DeferredValue<Output,Failure>: Publisher where Failure:Swift.Error
 
 extension DeferredValue {
     /// The shadow subscription chain's origin.
-    private final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<(),Configuration>
         
@@ -47,11 +47,13 @@ extension DeferredValue {
         func cancel() {
             self._state.terminate()
         }
-        
-        /// Values needed for the subscription active state.
-        private struct Configuration {
-            let downstream: Downstream
-            let closure: Closure
-        }
+    }
+}
+
+extension DeferredValue.Conduit {
+    /// Values needed for the subscription active state.
+    private struct Configuration {
+        let downstream: Downstream
+        let closure: DeferredValue.Closure
     }
 }

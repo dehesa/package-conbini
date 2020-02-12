@@ -42,8 +42,6 @@ extension Async {
         
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
-        /// Debug identifier.
-        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
         
         /// Creates a representation of an `SequentialTryMap` publisher.
         init(downstream: Downstream, closure: @escaping TransformClosure) {

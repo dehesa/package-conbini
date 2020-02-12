@@ -36,9 +36,9 @@ enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
         }
     }
 }
-#warning("Why is LockableState conforming to CustomCombineIdentifierConvertible?")
+
 /// Property Wrapper used to guard a combine conduit state behind a unfair lock.
-@propertyWrapper internal final class LockableState<WaitConfiguration,ActiveConfiguration>: CustomCombineIdentifierConvertible {
+@propertyWrapper internal final class LockableState<WaitConfiguration,ActiveConfiguration> {
     /// The type of the value being guarded by the lock.
     typealias Content = State<WaitConfiguration,ActiveConfiguration>
     
@@ -52,7 +52,7 @@ enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
         self.unfairLock.initialize(to: os_unfair_lock())
         self.state = wrappedValue
     }
-    #warning("deinit is the main reason why the lockable state is a class. It can be made a struct")
+    
     deinit {
         self.unfairLock.deallocate()
     }
