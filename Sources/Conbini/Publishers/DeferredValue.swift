@@ -25,29 +25,27 @@ public struct DeferredValue<Output,Failure>: Publisher where Failure:Swift.Error
 
 extension DeferredValue {
     /// The shadow subscription chain's origin.
-    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    private final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
         @LockableState private var state: State<(),Configuration>
-        /// Debug identifier.
-        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
         
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter closure: Closure in charge of generating the emitted value.
         init(downstream: Downstream, closure: @escaping Closure) {
-            _state = .active(.init(downstream: downstream, closure: closure))
+            self._state = .active(.init(downstream: downstream, closure: closure))
         }
         
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0,
-                  case .active(let config) = _state.terminate() else { return }
+                  case .active(let config) = self._state.terminate() else { return }
             
             _ = config.downstream.receive(config.closure())
             config.downstream.receive(completion: .finished)
         }
         
         func cancel() {
-            _state.terminate()
+            self._state.terminate()
         }
         
         /// Values needed for the subscription active state.

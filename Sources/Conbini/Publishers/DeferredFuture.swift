@@ -27,33 +27,31 @@ public struct DeferredFuture<Output,Failure:Swift.Error>: Publisher {
 
 extension DeferredFuture {
     /// The shadow subscription chain's origin.
-    private struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @LockableState private var state: State<(),Configuration>
-        /// Debug identifier.
-        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
+        @LockableState private var state: State<Void,Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            _state = .active(.init(downstream: downstream, step: .awaitingDemand(closure: closure)))
+            self._state = .active(.init(downstream: downstream, step: .awaitingDemand(closure: closure)))
         }
         
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0 else { return }
             
-            _state.lock()
-            guard let c = self.state.activeConfiguration,
-                case .awaitingDemand(let closure) = c.step else { return _state.unlock() }
-            self.state = .active(.init(downstream: c.downstream, step: .awaitingResult))
-            _state.unlock()
+            self._state.lock()
+            guard var config = self.state.activeConfiguration,
+                  case .awaitingDemand(let closure) = config.step else { return self._state.unlock() }
+            config.step = .awaitingResult
+            self.state = .active(config)
+            self._state.unlock()
             
-            closure { [weak lockableState = self._state] (result) -> Void in
-                guard let s = lockableState else { return }
+            closure { [weak self] (result) in
+                guard let self = self else { return }
                 
-                s.lock()
-                guard let config = s.wrappedValue.activeConfiguration else { return s.unlock() }
-                guard case .awaitingResult = config.step else { fatalError() }
-                s.wrappedValue = .terminated
-                s.unlock()
+                self._state.lock()
+                guard let config = self.state.activeConfiguration else { return self._state.unlock() }
+                self.state = .terminated
+                self._state.unlock()
                 
                 switch result {
                 case .success(let value):
@@ -66,18 +64,20 @@ extension DeferredFuture {
         }
         
         func cancel() {
-            _state.terminate()
+            self._state.terminate()
         }
+    }
+}
+
+extension DeferredFuture.Conduit {
+    /// Values needed for the subscription active state.
+    private struct Configuration {
+        let downstream: Downstream
+        var step: Step
         
-        /// Values needed for the subscription active state.
-        private struct Configuration {
-            let downstream: Downstream
-            let step: Step
-            
-            enum Step {
-                case awaitingDemand(closure: Closure)
-                case awaitingResult
-            }
+        enum Step {
+            case awaitingDemand(closure: DeferredFuture<Output,Failure>.Closure)
+            case awaitingResult
         }
     }
 }

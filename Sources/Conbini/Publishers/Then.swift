@@ -9,205 +9,249 @@ extension Publishers {
         
         /// Publisher emitting the events being received here.
         public let upstream: Upstream
+        /// The maximum demand requested to the upstream at the same time.
+        public let maxDemand: Subscribers.Demand
         /// Closure that will crete the publisher that will emit events downstream once a successful completion is received.
         public let transform: () -> Child
+        
         /// Designated initializer providing the upstream publisher and the closure in charge of arranging the transformation.
+        ///
+        /// The `maxDemand` must be greater than zero (`precondition`).
         /// - parameter upstream: Upstream publisher chain which successful completion will trigger the `transform` closure.
+        /// - parameter maxDemand: The maximum demand requested to the upstream at the same time.
         /// - parameter transfom: Closure providing the new (or existing) publisher.
-        public init(upstream: Upstream, transform: @escaping ()->Child) {
+        public init(upstream: Upstream, maxDemand: Subscribers.Demand = .unlimited, transform: @escaping ()->Child) {
+            precondition(maxDemand > .none)
             self.upstream = upstream
+            self.maxDemand = maxDemand
             self.transform = transform
         }
         
         public func receive<S>(subscriber: S) where S:Subscriber, Output==S.Input, Failure==S.Failure {
-            let subscriber = Conduit.make(downstream: subscriber, transform: self.transform)
-            upstream.subscribe(subscriber)
+            let conduitDownstream = DownstreamConduit(downstream: subscriber, transform: self.transform)
+            let conduitUpstream = UpstreamConduit(subscriber: conduitDownstream, maxDemand: self.maxDemand)
+            self.upstream.subscribe(conduitUpstream)
         }
     }
 }
+
+// MARK: -
+
+extension Publishers.Then {
+    /// Helper that acts as a `Subscriber` for the upstream, but just forward events to the given `Conduit` instance.
+    fileprivate final class UpstreamConduit<Downstream>: Subscription, Subscriber where Downstream: Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
+        typealias Input = Upstream.Output
+        typealias Failure = Upstream.Failure
+        
+        /// Enum listing all possible conduit states.
+        @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
+        /// The combine identifier shared with the `DownstreamConduit`.
+        let combineIdentifier: CombineIdentifier
+        /// The maximum demand requested to the upstream at the same time.
+        private let maxDemand: Subscribers.Demand
+        
+        /// Designated initializer for this helper establishing the strong bond between the `Conduit` and the created helper.
+        init(subscriber: DownstreamConduit<Downstream>, maxDemand: Subscribers.Demand) {
+            precondition(maxDemand > .none)
+            self.state = .awaitingSubscription(.init(downstream: subscriber))
+            self.maxDemand = maxDemand
+            self.combineIdentifier = subscriber.combineIdentifier
+        }
+        
+        deinit {
+            self.cancel()
+        }
+        
+        func receive(subscription: Subscription) {
+            guard let config = _state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else { return }
+            config.downstream.receive(subscription: self)
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            guard demand > 0 else { return }
+            
+            _state.lock()
+            guard var config = self.state.activeConfiguration, !config.didDownstreamRequestValues else { return _state.unlock() }
+            config.didDownstreamRequestValues = true
+            self.state = .active(config)
+            _state.unlock()
+            
+            config.upstream.request(self.maxDemand)
+        }
+        
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            .max(1)
+        }
+        
+        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            guard case .active(let config) = _state.terminate() else { return }
+            config.downstream.receive(completion: completion)
+        }
+        
+        func cancel() {
+            guard case .active(let config) = _state.terminate() else { return }
+            config.upstream.cancel()
+        }
+    }
+}
+
+extension Publishers.Then.UpstreamConduit {
+    /// The necessary variables during the *awaiting* stage.
+    ///
+    /// The *Conduit* has been initialized, but it is not yet connected to the upstream.
+    private struct WaitConfiguration {
+        let downstream: Publishers.Then<Child,Upstream>.DownstreamConduit<Downstream>
+    }
+    /// The necessary variables during the *active* stage.
+    ///
+    /// The *Conduit* is receiving values from upstream.
+    private struct ActiveConfiguration {
+        let upstream: Subscription
+        let downstream: Publishers.Then<Child,Upstream>.DownstreamConduit<Downstream>
+        var didDownstreamRequestValues: Bool
+    }
+}
+
+// MARK: -
 
 extension Publishers.Then {
     /// Represents an active `Then` publisher taking both the role of `Subscriber` (for upstream publishers) and `Subscription` (for downstream subscribers).
     ///
     /// This subscriber takes as inputs any value provided from upstream, but ignores them. Only when a successful completion has been received, a `Child` publisher will get generated.
     /// The child events will get emitted as-is (i.e. without any modification).
-    fileprivate final class Conduit<Downstream>: Subscription, Subscriber where Downstream: Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
+    fileprivate final class DownstreamConduit<Downstream>: Subscription, Subscriber where Downstream: Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
         typealias Input = Downstream.Input
         typealias Failure = Downstream.Failure
         
-        /// Performant non-rentrant unfair lock.
-        var lock: UnsafeMutablePointer<os_unfair_lock>
-        /// Keeps track of the subscription state
-        private var state: State
+        /// Enum listing all possible conduit states.
+        @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
         
         /// Designated initializer holding the downstream subscribers.
         /// - parameter downstream: The subscriber receiving values downstream.
         /// - parameter transform: The closure that will eventually generate another publisher to switch to.
-        private init(downstream: Downstream, transform: @escaping ()->Child) {
-            self.lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
-            self.lock.initialize(to: os_unfair_lock())
-            self.state = .initialized(closure: transform, downstream: downstream)
+        init(downstream: Downstream, transform: @escaping ()->Child) {
+            self.state = .awaitingSubscription(.init(closure: transform, downstream: downstream))
         }
         
-        /// Creates a strong bond between the upstream `Subscriber` returned and the created `Conduit`.
-        /// - parameter downstream: The subscriber receiving values downstream.
-        /// - parameter transform: The closure that will eventually generate another publisher to switch to.
-        static func make(downstream: Downstream, transform: @escaping ()->Child) -> UpstreamSubscriber {
-            let conduit = Conduit(downstream: downstream, transform: transform)
-            return UpstreamSubscriber(conduit: conduit)
+        deinit {
+            self.cancel()
         }
         
         func receive(subscription: Subscription) {
-            os_unfair_lock_lock(self.lock)
-            
+            // A subscription can be received in two cases:
+            // - The pipeline has just started and an acknowledgment is being waited from the upstream.
+            // - The upstream has completed successfully and a child has been instantiated. The acknowledgement is being waited upon.
+            self._state.lock()
             switch self.state {
-            case .initialized(let closure, let downstream):
-                self.state = .upstreaming(subscription: subscription, closure: closure, downstream: downstream, downstreamRequests: .none)
-                os_unfair_lock_unlock(self.lock)
-                downstream.receive(subscription: self)
-            case .upstreaming(_, _, let downstream, let downstreamRequests):
-                self.state = .transformed(subscription: subscription, downstream: downstream)
-                os_unfair_lock_unlock(self.lock)
-                subscription.request(downstreamRequests)
-            case .transformed: fatalError()
-            case .terminated: os_unfair_lock_unlock(self.lock)
+            case .awaitingSubscription(let config):
+                self.state = .active(.init(stage: .upstream(subscription: subscription, closure: config.closure, storedRequests: .none), downstream: config.downstream))
+                self._state.unlock()
+                config.downstream.receive(subscription: self)
+            case .active(var config):
+                guard case .awaitingChild(let storedRequests) = config.stage else { fatalError() }
+                config.stage = .child(subscription: subscription)
+                self.state = .active(config)
+                self._state.unlock()
+                subscription.request(storedRequests)
+            case .terminated:
+                self._state.unlock()
             }
         }
         
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0 else { return }
-
-            let request: (Subscription, Subscribers.Demand)?
-
-            os_unfair_lock_lock(self.lock)
-            switch self.state {
-            case .initialized: fatalError()
-            case .upstreaming(let s, let c, let d, let r):
-                self.state = .upstreaming(subscription: s, closure: c, downstream: d, downstreamRequests: r + demand)
-                request = (r == .none) ? (s, .unlimited) : nil
-            case .transformed(let s, _): request = (s, demand)
-            case .terminated: request = nil
-            }
-            os_unfair_lock_unlock(self.lock)
-
-            guard let (subscription, demand) = request else { return }
-            subscription.request(demand)
-        }
-        
-        func receiveUpstream(completion: Subscribers.Completion<Upstream.Failure>) {
-            os_unfair_lock_lock(self.lock)
-            guard case .upstreaming(_, let closure, let downstream, _) = self.state else {
-                return os_unfair_lock_unlock(self.lock)
-            }
             
-            switch completion {
-            case .failure:
-                self.state = .terminated
-                os_unfair_lock_unlock(self.lock)
-                downstream.receive(completion: completion)
-            case .finished:
-                os_unfair_lock_unlock(self.lock)
-                let child = closure()
-                child.subscribe(self)
+            self._state.lock()
+            guard var config = self.state.activeConfiguration else { return self._state.unlock() }
+            
+            switch config.stage {
+            case .upstream(let subscription, let closure, let requests):
+                config.stage = .upstream(subscription: subscription, closure: closure, storedRequests: requests + demand)
+                self.state = .active(config)
+                self._state.unlock()
+                if requests == .none { subscription.request(.max(1)) }
+            case .awaitingChild(let requests):
+                config.stage = .awaitingChild(storedRequests: requests + demand)
+                self.state = .active(config)
+                self._state.unlock()
+            case .child(let subscription):
+                self._state.unlock()
+                return subscription.request(demand)
             }
         }
         
-        // receiveChild(_ input:)
         func receive(_ input: Downstream.Input) -> Subscribers.Demand {
-            os_unfair_lock_lock(self.lock)
-            switch self.state {
-            case .initialized, .upstreaming:
-                fatalError()
-            case .transformed(_, let downstream):
-                os_unfair_lock_unlock(self.lock)
-                return downstream.receive(input)
-            case .terminated:
-                os_unfair_lock_unlock(self.lock)
-                return .none
-            }
+            self._state.lock()
+            guard let config = self.state.activeConfiguration else { self._state.unlock(); return .unlimited }
+            guard case .child = config.stage else { fatalError() }
+            self._state.unlock()
+            return config.downstream.receive(input)
         }
         
-        // receiveChild(completion:)
         func receive(completion: Subscribers.Completion<Downstream.Failure>) {
-            os_unfair_lock_lock(self.lock)
-            switch self.state {
-            case .initialized, .upstreaming:
+            self._state.lock()
+            guard var config = self.state.activeConfiguration else { return self._state.unlock() }
+            
+            switch config.stage {
+            case .upstream(_, let closure, let requests):
+                switch completion {
+                case .finished:
+                    config.stage = .awaitingChild(storedRequests: requests)
+                    self.state = .active(config)
+                    self._state.unlock()
+                    closure().subscribe(self)
+                case .failure:
+                    self.state = .terminated
+                    self._state.unlock()
+                    config.downstream.receive(completion: completion)
+                }
+            case .awaitingChild:
                 fatalError()
-            case .transformed(_, let downstream):
+            case .child:
                 self.state = .terminated
-                os_unfair_lock_unlock(self.lock)
-                downstream.receive(completion: completion)
-            case .terminated:
-                os_unfair_lock_unlock(self.lock)
+                self._state.unlock()
+                config.downstream.receive(completion: completion)
             }
         }
 
         func cancel() {
-            os_unfair_lock_lock(self.lock)
-            let subscription = self.state.subscription
-            self.state = .terminated
-            os_unfair_lock_unlock(self.lock)
-            subscription?.cancel()
-        }
-        
-        deinit {
-            self.cancel()
-            self.lock.deallocate()
-        }
-    }
-}
-
-extension Publishers.Then.Conduit {
-    /// Helper that acts as a `Subscriber` for the upstream, but just forward events to the given `Conduit` instance.
-    fileprivate struct UpstreamSubscriber: Subscriber {
-        typealias Input = Upstream.Output
-        typealias Failure = Upstream.Failure
-        /// Strong bond to the `Conduit` instance, so it is kept alive between upstream subscription and the subscription acknowledgement.
-        let conduit: Publishers.Then<Child,Upstream>.Conduit<Downstream>
-        
-        /// Designated initializer for this helper establishing the strong bond between the `Conduit` and the created helper.
-        init(conduit: Publishers.Then<Child,Upstream>.Conduit<Downstream>) {
-            self.conduit = conduit
-        }
-        
-        var combineIdentifier: CombineIdentifier {
-            self.conduit.combineIdentifier
-        }
-        
-        func receive(subscription: Subscription) {
-            self.conduit.receive(subscription: subscription)
-        }
-        
-        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            .unlimited
-        }
-        
-        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            self.conduit.receiveUpstream(completion: completion)
-        }
-    }
-}
-
-extension Publishers.Then.Conduit {
-    /// The states the `Then`'s `Conduit` cycles through.
-    fileprivate enum State {
-        /// The `Conduit` has been initialized, but it is not yet connected to the upstream.
-        case initialized(closure: ()->Child, downstream: Downstream)
-        /// The `Conduit` is connected to the upstream and receiving its events.
-        case upstreaming(subscription: Subscription, closure: ()->Child, downstream: Downstream, downstreamRequests: Subscribers.Demand)
-        /// The `Conduit` has already received a successful completion from the upstream and has switched to the `Child` publisher.
-        case transformed(subscription: Subscription, downstream: Downstream)
-        /// The `Conduit` has been cancelled, or has received a failure termination, or its `Child` has successfully terminated.
-        case terminated
-        
-        /// Returns the upstream or child `Subscription` to request more data.
-        var subscription: Subscription? {
-            switch self {
-            case .initialized: return nil
-            case .upstreaming(let s, _, _, _): return s
-            case .transformed(let s, _): return s
-            case .terminated: return nil
+            guard case .active(let config) = self._state.terminate() else { return }
+            switch config.stage {
+            case .upstream(let subscription, _, _): subscription.cancel()
+            case .awaitingChild(_): break
+            case .child(let subscription): subscription.cancel()
             }
+        }
+    }
+}
+
+extension Publishers.Then.DownstreamConduit {
+    /// The necessary variables during the *awaiting* stage.
+    ///
+    /// The `Conduit` has been initialized, but it is not yet connected to the upstream conduit.
+    private struct WaitConfiguration {
+        /// Closure generating the publisher which will take over once the publisher has completed (successfully).
+        let closure: ()->Child
+        /// The subscriber further down the chain.
+        let downstream: Downstream
+    }
+    /// The necessary variables during the *active* stage.
+    ///
+    /// The *Conduit* is receiving values from upstream or child publisher.
+    private struct ActiveConfiguration {
+        /// The active stage
+        var stage: Stage
+        /// The subscriber further down the chain.
+        let downstream: Downstream
+        
+        /// Once the pipeline is activated, there are two main stages: upsatream connection, and child publishing.
+        enum Stage {
+            /// Values are being received from downstream, but the child publisher hasn't been activated (switched to) yet.
+            case upstream(subscription: Subscription, closure: ()->Child, storedRequests: Subscribers.Demand)
+            /// Upstream has completed successfully and the child publisher has been instantiated and it is being waited for subscription acknowledgement.
+            case awaitingChild(storedRequests: Subscribers.Demand)
+            /// Upstream has completed successfully and the child is sending values.
+            case child(subscription: Subscription)
         }
     }
 }

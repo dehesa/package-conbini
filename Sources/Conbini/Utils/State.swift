@@ -36,7 +36,7 @@ enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
         }
     }
 }
-
+#warning("Why is LockableState conforming to CustomCombineIdentifierConvertible?")
 /// Property Wrapper used to guard a combine conduit state behind a unfair lock.
 @propertyWrapper internal final class LockableState<WaitConfiguration,ActiveConfiguration>: CustomCombineIdentifierConvertible {
     /// The type of the value being guarded by the lock.
@@ -52,7 +52,7 @@ enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
         self.unfairLock.initialize(to: os_unfair_lock())
         self.state = wrappedValue
     }
-    
+    #warning("deinit is the main reason why the lockable state is a class. It can be made a struct")
     deinit {
         self.unfairLock.deallocate()
     }
@@ -88,6 +88,7 @@ extension LockableState {
     /// - If the state is already in `.active`, this function crashes.
     /// - If the state is `.terminated`, no work is performed.
     /// - parameter priviledgeHandler: Code executed within the unfair locks. Don't call anywhere here; just perform computations.
+    /// - returns: The active configuration set after the call of this function.
     func activate(locking priviledgeHandler: (_ config: WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
         self.lock()
         switch self.state {

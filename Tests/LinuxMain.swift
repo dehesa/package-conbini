@@ -1,5 +1,6 @@
+//// LinuxMain.swift
+//fatalError("Run the tests with `swift test --enable-test-discovery`.")
 import XCTest
-
 import ConbiniTests
 
 var tests = [XCTestCaseEntry]()

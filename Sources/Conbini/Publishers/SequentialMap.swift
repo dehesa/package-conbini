@@ -24,7 +24,7 @@ extension Publishers {
 
         public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
             let conduit = Async.Conduit<Upstream,Self,S,Output>(downstream: subscriber, closure: self.closure)
-            upstream.subscribe(conduit)
+            self.upstream.subscribe(conduit)
         }
     }
 }

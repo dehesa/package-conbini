@@ -37,19 +37,16 @@ public struct DeferredComplete<Output,Failure>: Publisher where Failure:Swift.Er
 
 extension DeferredComplete {
     /// The shadow subscription chain's origin.
-    fileprivate struct Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
+    fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @LockableState private var state: State<(),Configuration>
-        /// Debug identifier.
-        var combineIdentifier: CombineIdentifier { _state.combineIdentifier }
+        @LockableState private var state: State<Void,Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            _state = .active(.init(downstream: downstream, closure: closure))
+            self._state = .active(.init(downstream: downstream, closure: closure))
         }
         
         func request(_ demand: Subscribers.Demand) {
-            guard demand > 0,
-                  case .active(let config) = _state.terminate() else { return }
+            guard demand > 0, case .active(let config) = self._state.terminate() else { return }
             
             if let error = config.closure() {
                 return config.downstream.receive(completion: .failure(error))
@@ -59,7 +56,7 @@ extension DeferredComplete {
         }
         
         func cancel() {
-            _state.terminate()
+            self._state.terminate()
         }
     }
 }
