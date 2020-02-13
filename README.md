@@ -6,10 +6,12 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 ![Swift 5.1](https://img.shields.io/badge/Swift-5.1-orange.svg) ![platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS-lightgrey.svg) [![License](http://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org)
 
-## Operators
+# Operators
+
+Operators extending a given pipeline:
 
 -   `then` ignores all values and executes the provided publisher once a successful completion is received.
-    If a failed completion is emitted, it is forwarded downstream.
+    <br>If a failed completion is emitted, it is forwarded downstream.
 
     ```swift
     let publisher = setConfigurationOnServer.then {
@@ -17,20 +19,10 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     }
     ```
 
--   `result` subscribes to the receiving publisher and executes the provided closure when a single value followed by a successful completion is received.
-    In case of failure, the handler is executed with such failure.
-
-    ```swift
-    let cancellable = serverRequest.result { (result) in
-        switch result {
-        case .success(let value): ...
-        case .failure(let error): ...
-        }
-    }
-    ```
+    This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s, which specifies the maximum demand requested to the upstream at any given time.
 
 -   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement (similar to `Future`).
-    Useful when asynchronous operations must be performed sequentially on a value.
+    <br>Useful when asynchronous operations must be performed sequentially on a value.
 
     ```swift
     let publisher = [1, 2].publisher.asyncMap { (value, promise) in
@@ -43,18 +35,8 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     This operator also provides a `try` variant accepting a result (instead of a value).
 
-    ```swift
-    let publisher = [1, 2].publisher.asyncTryMap { (value, promise) in
-        do {
-            let newValue = try someOperation()
-            promise(.success(newValue))
-        } catch let error {
-            promise(.failure(error))
-        }
-    }
-    ```
-
 -   `sequentialMap` transform elements received from upstream (as `asyncMap`) with the twist that it allows you to call multiple times the `promise` callback; effectively transforming one value into many results.
+    <br>The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
 
     ```swift
     let publisher = [1, 2].publisher.sequentialMap { (value, promise) in
@@ -68,38 +50,31 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     // Downstream will receive: [11, 12, 13, 21, 22, 23]
     ```
 
-    The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
-
     This operator also provides a `try` variant accepting a result (instead of a value).
 
+Operators acting as subscribers:
+
+-   `result` subscribes to the receiving publisher and executes the provided closure when a single value followed by a successful completion is received.
+    <br>In case of failure, the handler is executed with such failure.
+
     ```swift
-    let publisher = [1, 2].publisher.sequentialTryMap { (value, promise) in
-        queue.async {
-            promise( .success(value * 10 + 1), .continue)
-            promise( .success(value * 10 + 2), .continue)
-            promise( .failure(CustomError), .finished)
+    let cancellable = serverRequest.result { (result) in
+        switch result {
+        case .success(let value): ...
+        case .failure(let error): ...
         }
     }
     ```
 
--   `sequentialFlatMap` performs a similar operation to `flatMap` (i.e. flattens/executes a publisher emitted from upstream); but instead of accepting _willy-nilly_ all emitted publishers, it only requests one value at a time (through backpressure mechanisms).
-    Useful for operations/enpoints that must be performed sequentially.
+    The operator lets you optionally generate an error (which will be consumed by your `handler`) for unexpected cases, such as when more than one value are received.
 
-    ```swift
-    [enpointA, endpointB, endpointC].publisher
-        .sequentialFlatMap { $0 }
-    // Downstream will receive: [resultEndpointA, resultEndpointB, resultEndpointC]
-    ```
-
-    This publisher works "as expected" even with upstream publishers that disregard backpressure (e.g. `PassthroughSubject`). It buffers values internally and execute the generated publisher depending on the subscriber's demand and whether a publisher is currently _in operation_. Do note, that if a failure completion is received, the whole publisher will finish and any publisher being buffered won't have a chance to execute. This is a similar behavior as Combine's `buffer()` operator.
-
-## Publishers
+# Publishers
 
 -   `Deferred...` publishers accept a closure that is executed once a _greater-than-zero_ demand is requested.
-    They have several flavors:
+    <br>They have several flavors:
 
     -   `DeferredValue` emits a single value and then completes.
-        The value is not provided/cached, but instead a closure will generate it. The closure is executed once a positive subscription is received.
+        <br>The value is not provided/cached, but instead a closure will generate it. The closure is executed once a positive subscription is received.
 
         ```swift
         let publisher = DeferredValue<Int,CustomError> {
@@ -108,12 +83,6 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
         ```
 
         A `Try` variant is also offered, enabling you to `throw` from within the closure. It loses the concrete error type (i.e. it gets converted to `Swift.Error`).
-
-        ```swift
-        let publisher = DeferredTryValue {
-            return try intenseProcessing()
-        }
-        ```
 
     -   `DeferredResult` offers the same functionality as `DeferredValue`, but the closure generates a `Result` instead.
 
@@ -134,12 +103,6 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
         A `Try` variant is also offered, enabling you to `throw` from within the closure; but it loses the concrete error type (i.e. gets converted to `Swift.Error`).
 
-        ```swift
-        let publisher = DeferredTryCompletion {
-            try somethingThatMighFail()
-        }
-        ```
-
     -   `DeferredPassthrough` is similar to wrapping a `Passthrough` subject on a `Deferred` closure, with the diferrence that the `Passthrough` given on the closure is already _wired_ on the publisher chain and can start sending values right away. Also, the memory management is taken care of and every new subscriber receives a new subject (closure re-execution).
 
         ```swift
@@ -158,6 +121,17 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 -   `Then` provides the functionality of the `then` operator.
 
+## Extra Functionality
+
+The following are a grab-bag of extra functionality added to Combine:
+
+-   `Publishers.PrefetchStrategy` has been extended with a `.fatalError(message:file:line:)` option to stop execution if the buffer is filled.
+    <br>This is useful during development and debugging and for cases when you are sure the buffer will never be filled.
+
+    ```swift
+    publisher.buffer(size: 10, prefetch: .keepFull, whenFull: .fatalError())
+    ```
+
 # Testing
 
 Conbini provides convenience subscribers to ease code testing. These subscribers make the test wait till a specific expectation is fulfilled (or making the test fail in a negative case). Furthermore, if a timeout ellapses or a expectation is not fulfilled, the affected test line will be marked _in red_ correctly in Xcode.
@@ -175,7 +149,7 @@ Conbini provides convenience subscribers to ease code testing. These subscribers
     ```
 
 -   `expectsOne` subscribes to a publisher making the running test wait for a single value and a successful completion.
-    If more than one values are emitted or the publisher fails, the subscription gets cancelled and the test fails.
+    <br>If more than one values are emitted or the publisher fails, the subscription gets cancelled and the test fails.
 
     ```swift
     let emittedValue = publisherChain.expectsOne(timeout: 0.8, on: test)
@@ -188,7 +162,7 @@ Conbini provides convenience subscribers to ease code testing. These subscribers
     ```
 
 -   `expectsAtLeast` subscribes to a publisher making the running test wait for at least the provided amount of values.
-    Once the provided amount of values is received, the publisher gets cancelled and the values are returned.
+    <br>Once the provided amount of values is received, the publisher gets cancelled and the values are returned.
 
     ```swift
     let emittedValues = publisherChain.expectsAtLeast(values: 5, timeout: 0.8, on: test)
