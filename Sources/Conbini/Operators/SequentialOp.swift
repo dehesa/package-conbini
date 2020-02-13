@@ -109,12 +109,4 @@ extension Publisher {
     public func sequentialTryMap<T,F>(failure: F.Type = F.self, _ transform: @escaping (_ value: Output, _ promise: @escaping (_ result: Result<T,F>, _ request: Async.Request)->Async.Permission) -> Void) -> Publishers.SequentialTryMap<Self,T,F> {
         .init(upstream: self, transform: transform)
     }
-    
-    /// Transforms all elements from an upstream publisher into a new or existing publisher and execute them sequential.
-    ///
-    /// This operator utilizes a mix of backpressure and buffering to manage the elements arriving to it. Once a value arrives, it is transformed and executed. If another value arrived before the previously generated publisher is completed; that value is stored in a temporary buffer.
-    /// - parameter closure: A closure receiving the upstream emitting value and generating a publisher to be executed.
-    public func sequentialFlatMap<Child>(_ transform: @escaping (_ value: Output)->Child) -> Publishers.SequentialFlatMap<Child,Self> where Child:Publisher, Child.Failure==Failure {
-        .init(upstream: self, transform: transform)
-    }
 }

@@ -19,7 +19,7 @@ Operators extending a given pipeline:
     }
     ```
 
-    This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s, which specifies the maximum demand requested to the upstream at any given time.
+    This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s `maxPublishers`, which specifies the maximum demand requested to the upstream at any given time.
 
 -   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement (similar to `Future`).
 
