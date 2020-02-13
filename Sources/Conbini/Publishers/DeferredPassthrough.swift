@@ -15,7 +15,7 @@ public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
     
     /// Publisher's closure storage.
     /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
-    private let closure: Closure
+    public let closure: Closure
     /// Creates a publisher that sends
     /// - parameter setup: The closure for delayed execution.
     /// - remark: Please notice, the pipeline won't complete if the subject within the closure doesn't send `.send(completion:)`.
@@ -23,7 +23,7 @@ public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
         self.closure = setup
     }
     
-    public func receive<S>(subscriber: S) where S:Subscriber, S.Failure==Failure, S.Input==Output {
+    public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
         let upstream = PassthroughSubject<Output,Failure>()
         let conduit = Conduit(upstream: upstream, downstream: subscriber, closure: self.closure)
         upstream.subscribe(conduit)
@@ -38,7 +38,7 @@ extension DeferredPassthrough {
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
         init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {
-            self._state = .awaitingSubscription(.init(upstream: upstream, downstream: downstream, closure: closure))
+            self._state = .init(wrappedValue: .awaitingSubscription(.init(upstream: upstream, downstream: downstream, closure: closure)))
         }
         
         deinit {

@@ -64,16 +64,6 @@ enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
 }
 
 extension LockableState {
-    /// Factory function creating a lockable state initialized at the `.awaitingSubscription` stage.
-    static func awaitingSubscription(_ configuration: WaitConfiguration) -> Self {
-        return self.init(wrappedValue: .awaitingSubscription(configuration))
-    }
-    
-    /// Factory function creating a lockable state initialized at the `.active` stage.
-    static func active(_ configuration: ActiveConfiguration) -> Self {
-        return self.init(wrappedValue: .active(configuration))
-    }
-    
     /// Locks the state to other threads.
     func lock() {
         os_unfair_lock_lock(self.unfairLock)

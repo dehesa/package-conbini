@@ -10,7 +10,7 @@ public struct DeferredTryComplete<Output>: Publisher {
     
     /// Deferred closure.
     /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
-    private let closure: Closure
+    public let closure: Closure
     
     /// Creates a publisher that send a successful completion once it receives a positive request (i.e. a request greater than zero)
     public init() {
@@ -36,7 +36,7 @@ extension DeferredTryComplete {
         @LockableState private var state: State<Void,Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .active(.init(downstream: downstream, closure: closure))
+            self._state = .init(wrappedValue: .active(.init(downstream: downstream, closure: closure)))
         }
         
         func request(_ demand: Subscribers.Demand) {

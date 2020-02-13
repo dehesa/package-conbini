@@ -6,13 +6,15 @@ extension Publishers {
     public struct Then<Child,Upstream>: Publisher where Upstream:Publisher, Child:Publisher, Upstream.Failure==Child.Failure {
         public typealias Output = Child.Output
         public typealias Failure = Child.Failure
+        /// Closure generating the publisher to be pipelined after upstream completes.
+        public typealias Closure = () -> Child
         
         /// Publisher emitting the events being received here.
         public let upstream: Upstream
         /// The maximum demand requested to the upstream at the same time.
         public let maxDemand: Subscribers.Demand
         /// Closure that will crete the publisher that will emit events downstream once a successful completion is received.
-        public let transform: () -> Child
+        public let transform: Closure
         
         /// Designated initializer providing the upstream publisher and the closure in charge of arranging the transformation.
         ///
@@ -27,7 +29,7 @@ extension Publishers {
             self.transform = transform
         }
         
-        public func receive<S>(subscriber: S) where S:Subscriber, Output==S.Input, Failure==S.Failure {
+        public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
             let conduitDownstream = DownstreamConduit(downstream: subscriber, transform: self.transform)
             let conduitUpstream = UpstreamConduit(subscriber: conduitDownstream, maxDemand: self.maxDemand)
             self.upstream.subscribe(conduitUpstream)
@@ -39,7 +41,7 @@ extension Publishers {
 
 extension Publishers.Then {
     /// Helper that acts as a `Subscriber` for the upstream, but just forward events to the given `Conduit` instance.
-    fileprivate final class UpstreamConduit<Downstream>: Subscription, Subscriber where Downstream: Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
+    fileprivate final class UpstreamConduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         
@@ -63,18 +65,18 @@ extension Publishers.Then {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = _state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else { return }
+            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else { return }
             config.downstream.receive(subscription: self)
         }
         
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0 else { return }
             
-            _state.lock()
-            guard var config = self.state.activeConfiguration, !config.didDownstreamRequestValues else { return _state.unlock() }
+            self._state.lock()
+            guard var config = self.state.activeConfiguration, !config.didDownstreamRequestValues else { return self._state.unlock() }
             config.didDownstreamRequestValues = true
             self.state = .active(config)
-            _state.unlock()
+            self._state.unlock()
             
             config.upstream.request(self.maxDemand)
         }
@@ -84,12 +86,12 @@ extension Publishers.Then {
         }
         
         func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard case .active(let config) = _state.terminate() else { return }
+            guard case .active(let config) = self._state.terminate() else { return }
             config.downstream.receive(completion: completion)
         }
         
         func cancel() {
-            guard case .active(let config) = _state.terminate() else { return }
+            guard case .active(let config) = self._state.terminate() else { return }
             config.upstream.cancel()
         }
     }
@@ -129,7 +131,7 @@ extension Publishers.Then {
         /// Designated initializer holding the downstream subscribers.
         /// - parameter downstream: The subscriber receiving values downstream.
         /// - parameter transform: The closure that will eventually generate another publisher to switch to.
-        init(downstream: Downstream, transform: @escaping ()->Child) {
+        init(downstream: Downstream, transform: @escaping Closure) {
             self.state = .awaitingSubscription(.init(closure: transform, downstream: downstream))
         }
         
@@ -228,10 +230,10 @@ extension Publishers.Then {
 extension Publishers.Then.DownstreamConduit {
     /// The necessary variables during the *awaiting* stage.
     ///
-    /// The `Conduit` has been initialized, but it is not yet connected to the upstream conduit.
+    /// The `Conduit` has been initialized, but it is not yet connected to the upstream.
     private struct WaitConfiguration {
         /// Closure generating the publisher which will take over once the publisher has completed (successfully).
-        let closure: ()->Child
+        let closure: Publishers.Then<Child,Upstream>.Closure
         /// The subscriber further down the chain.
         let downstream: Downstream
     }
@@ -255,4 +257,3 @@ extension Publishers.Then.DownstreamConduit {
         }
     }
 }
-

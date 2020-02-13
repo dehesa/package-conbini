@@ -21,6 +21,19 @@ Operators extending a given pipeline:
 
     This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s `maxPublishers`, which specifies the maximum demand requested to the upstream at any given time.
 
+-   `handleEnd` executes (only once) the provided closure when the publisher completes (whether successfully or with a failure) or when the publisher gets cancelled.
+    <br> It performs the same operation that the standard `handleEvents(receiveSubscription:receiveOutput:receiveCompletion:receiveCancel:receiveRequest:)` would perform if you add the a similar closure to `receiveCompletion` and `receiveCancel`.
+
+    ```swift
+    let publisher = upstream.handleEnd { (completion) in
+        switch completion {
+        case .none: // The publisher got cancelled.
+        case .finished: // The publisher finished successfully.
+        case .failure(let error): // The publisher generated an error.
+        }
+    }
+    ```
+
 -   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement (similar to `Future`).
 
     ```swift

@@ -9,7 +9,7 @@ public struct DeferredTryValue<Output>: Publisher {
     public typealias Closure = () throws -> Output
     /// Deferred closure.
     /// - attention: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
-    private let closure: Closure
+    public let closure: Closure
     
     /// Creates a publisher which will a value and completes successfully, or just fail depending on the result of the given closure.
     /// - parameter closure: Closure in charge of generating the value to be emitted.
@@ -34,7 +34,7 @@ extension DeferredTryValue {
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter closure: Closure in charge of generating the emitted value.
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .active(.init(downstream: downstream, closure: closure))
+            self._state = .init(wrappedValue: .active(.init(downstream: downstream, closure: closure)))
         }
         
         func request(_ demand: Subscribers.Demand) {

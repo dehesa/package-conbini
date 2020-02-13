@@ -8,7 +8,7 @@ public struct DeferredResult<Output,Failure:Swift.Error>: Publisher {
     public typealias Closure = () -> Result<Output,Failure>
     /// Deferred closure.
     /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
-    private let closure: Closure
+    public let closure: Closure
     
     /// Creates a publisher that send a value and completes successfully or just fails depending on the result of the given closure.
     /// - parameter closure: Closure in charge of generating the value to be emitted.
@@ -17,7 +17,7 @@ public struct DeferredResult<Output,Failure:Swift.Error>: Publisher {
         self.closure = closure
     }
     
-    public func receive<S>(subscriber: S) where S: Subscriber, Output==S.Input, Failure==S.Failure {
+    public func receive<S>(subscriber: S) where S: Subscriber, S.Input==Output, S.Failure==Failure {
         let subscription = Conduit(downstream: subscriber, closure: self.closure)
         subscriber.receive(subscription: subscription)
     }
@@ -30,7 +30,7 @@ extension DeferredResult {
         @LockableState private var state: State<Void,Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .active(.init(downstream: downstream, closure: closure))
+            self._state = .init(wrappedValue: .active(.init(downstream: downstream, closure: closure)))
         }
         
         func request(_ demand: Subscribers.Demand) {
