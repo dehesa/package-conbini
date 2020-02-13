@@ -1,5 +1,4 @@
 import Combine
-import Foundation
 
 extension Publishers {
     /// Transforms all elements from the upstream publisher with a provided closure.
@@ -56,7 +55,9 @@ extension Async {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, closure: $0.closure) }) else { return }
+            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, closure: $0.closure) }) else {
+                return subscription.cancel()
+            }
             config.downstream.receive(subscription: self)
         }
         

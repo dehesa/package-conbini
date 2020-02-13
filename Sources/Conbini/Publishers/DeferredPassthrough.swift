@@ -1,5 +1,4 @@
 import Combine
-import Foundation
 
 /// Similar to a `Passthrough` subject with the difference that the given closure will only get activated once the first positive demand is received.
 ///
@@ -46,7 +45,9 @@ extension DeferredPassthrough {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure)) }) else { return }
+            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure)) }) else {
+                return subscription.cancel()
+            }
             config.downstream.receive(subscription: self)
         }
         

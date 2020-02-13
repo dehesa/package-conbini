@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 /// States where conduit can find itself into.
-enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
+internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLiteral {
     /// A subscriber has been sent upstream, but a subscription acknowledgement hasn't been received yet.
     case awaitingSubscription(WaitConfiguration)
     /// The conduit is active and potentially receiving and sending events.
@@ -95,8 +95,7 @@ extension LockableState {
     }
     
     /// Nullify the state and returns the previous state value.
-    @discardableResult
-    func terminate() -> Content {
+    @discardableResult func terminate() -> Content {
         self.lock()
         let result = self.state
         self.state = .terminated

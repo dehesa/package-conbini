@@ -1,7 +1,6 @@
 #if canImport(XCTest)
 import XCTest
 import Combine
-import Foundation
 
 extension Publisher {
     /// Expects the receiving publisher to complete (with or without values) within the provided timeout.

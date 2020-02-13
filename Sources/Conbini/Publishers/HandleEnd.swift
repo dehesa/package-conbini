@@ -46,7 +46,9 @@ extension Publishers.HandleEnd {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { ActiveConfiguration(upstream: subscription, closure: $0.closure, downstream: $0.downstream) }) else { return }
+            guard let config = self._state.activate(locking: { ActiveConfiguration(upstream: subscription, closure: $0.closure, downstream: $0.downstream) }) else {
+                return subscription.cancel()
+            }
             config.downstream.receive(subscription: self)
         }
         

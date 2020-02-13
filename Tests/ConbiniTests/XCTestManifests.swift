@@ -15,6 +15,11 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(DeferredTryValueTests.allTests),
         testCase(DeferredValueTests.allTests),
         testCase(SequentialMapTests.allTests),
+        
+        testCase(GraduatedSinkTests.allTests),
+        testCase(FixedSinkTests.allTests),
+        
+        testCase(BufferTests.allTests),
     ]
 }
 #endif

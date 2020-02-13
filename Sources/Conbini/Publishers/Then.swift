@@ -1,5 +1,4 @@
 import Combine
-import Foundation
 
 extension Publishers {
     /// Transform the upstream successful completion event into a new or existing publisher.
@@ -65,7 +64,9 @@ extension Publishers.Then {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else { return }
+            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else {
+                return subscription.cancel()
+            }
             config.downstream.receive(subscription: self)
         }
         

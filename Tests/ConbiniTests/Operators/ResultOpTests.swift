@@ -63,8 +63,6 @@ extension ResultOpTests {
     
     /// Tests the `result` operator in failure situations.
     func testFailure() {
-        let input = 9
-        
         Fail<Int,CustomError>(error: .init()).result {
             guard case .failure(_) = $0 else { return XCTFail() }
         }
@@ -79,17 +77,5 @@ extension ResultOpTests {
         }.store(in: &self.cancellables)
         
         self.wait(for: [expA], timeout: 0.2)
-        
-        let expB = self.expectation(description: "A failure result is provided")
-        DeferredPassthrough<Int,CustomError> { (subject) in
-            let queue = DispatchQueue.main
-            queue.asyncAfter(deadline: .now() + .milliseconds(50)) { subject.send(input) }
-            queue.asyncAfter(deadline: .now() + .milliseconds(100)) { subject.send(completion: .failure(.init())) }
-        }.result {
-            guard case .failure(_) = $0 else { return XCTFail() }
-            expB.fulfill()
-        }.store(in: &self.cancellables)
-        
-        self.wait(for: [expB], timeout: 0.2)
     }
 }
