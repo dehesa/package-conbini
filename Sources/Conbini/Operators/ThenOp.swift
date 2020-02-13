@@ -9,8 +9,4 @@ extension Publisher {
     public func then<Child>(maxDemand: Subscribers.Demand = .unlimited, _ transform: @escaping ()->Child) -> Publishers.Then<Child,Self> where Child:Publisher, Self.Failure==Child.Failure {
         .init(upstream: self, maxDemand: maxDemand, transform: transform)
     }
-    
-    ///
-//    public func then<T>(maxDemand: Subscribers.Demand = .unlimited, _ transform: @escaping ()->T) -> Publishers.Then<>
-    #warning("Continue here")
 }

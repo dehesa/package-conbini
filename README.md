@@ -22,7 +22,6 @@ Operators extending a given pipeline:
     This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s, which specifies the maximum demand requested to the upstream at any given time.
 
 -   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement (similar to `Future`).
-    <br>Useful when asynchronous operations must be performed sequentially on a value.
 
     ```swift
     let publisher = [1, 2].publisher.asyncMap { (value, promise) in
@@ -36,7 +35,6 @@ Operators extending a given pipeline:
     This operator also provides a `try` variant accepting a result (instead of a value).
 
 -   `sequentialMap` transform elements received from upstream (as `asyncMap`) with the twist that it allows you to call multiple times the `promise` callback; effectively transforming one value into many results.
-    <br>The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
 
     ```swift
     let publisher = [1, 2].publisher.sequentialMap { (value, promise) in
@@ -46,11 +44,11 @@ Operators extending a given pipeline:
             promise(value * 10 + 3, .finished)
         }
     }
-
     // Downstream will receive: [11, 12, 13, 21, 22, 23]
     ```
 
-    This operator also provides a `try` variant accepting a result (instead of a value).
+    The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
+    <br>This operator also provides a `try` variant accepting a result (instead of a value).
 
 Operators acting as subscribers:
 
@@ -181,7 +179,7 @@ Conbini provides convenience subscribers to ease code testing. These subscribers
 The testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
 
 -   `import Conbini` includes all code excepts the testing conveniences.
--   `import ConbiniForTesting` includes everything.
+-   `import ConbiniForTesting` includes the testing functionality only.
 
 The rule of thumb is to use `import Conbini` in your regular code (e.g. within your framework or app) and write `import ConbiniForTesting` within your test target files.
 
