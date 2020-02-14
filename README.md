@@ -10,12 +10,14 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 ### Publisher Operators
 
--   `retry(on:intervals:)` attempts to recreate a failed subscription with the upstream publisher a given amount of times and waiting the specified number of seconds between failed attempts.
+-   `retry(on:intervals:)` attempts to recreate a failed subscription with the upstream publisher a given amount of times. Furthermore, it waits the specified number of seconds between failed attempts.
 
     ```swift
-    let apiCalls.retry(on: queue, intervals: [0.5, 2, 5])
-    // Same functionality to retry(3), but waiting between attemps 0.5, 2, and 3 seconds after a failed attempt.
+    let apiCallPublisher.retry(on: queue, intervals: [0.5, 2, 5])
+    // Same functionality to retry(3), but waiting between attemps 0.5, 2, and 5 seconds after each failed attempt.
     ```
+
+    This operator accept any scheduler conforming to `Scheduler` (e.g. `DispatchQueue`, `RunLoop`, etc). You can also optionally tweak the tolerance and scheduler operations.
 
 -   `then(maxDemand:_:)` ignores all values and executes the provided publisher once a successful completion is received.
     <br>If a failed completion is emitted, it is forwarded downstream.
