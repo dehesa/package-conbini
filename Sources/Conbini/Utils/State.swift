@@ -38,7 +38,7 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
 }
 
 /// Property Wrapper used to guard a combine conduit state behind a unfair lock.
-@propertyWrapper internal final class LockableState<WaitConfiguration,ActiveConfiguration> {
+@propertyWrapper internal final class Lock<WaitConfiguration,ActiveConfiguration> {
     /// The type of the value being guarded by the lock.
     typealias Content = State<WaitConfiguration,ActiveConfiguration>
     
@@ -63,7 +63,7 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
     }
 }
 
-extension LockableState {
+extension Lock {
     /// Locks the state to other threads.
     func lock() {
         os_unfair_lock_lock(self.unfairLock)

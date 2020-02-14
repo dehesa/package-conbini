@@ -10,7 +10,7 @@ extension Subscribers {
         /// The closure executed when a completion event is received.
         public private(set) var receiveCompletion: ((Subscribers.Completion<Failure>)->Void)?
         /// The subscriber's state.
-        @LockableState private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,Configuration>
         
         /// Designated initializer specifying the maximum in-flight events.
         /// - precondition: `maxDemand` must be greater than zero.

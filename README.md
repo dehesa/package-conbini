@@ -6,9 +6,9 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 ![Swift 5.1](https://img.shields.io/badge/Swift-5.1-orange.svg) ![platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS-lightgrey.svg) [![License](http://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org)
 
-# Operators
+## Operators
 
-Operators extending a given pipeline:
+### Publisher Operators
 
 -   `then` ignores all values and executes the provided publisher once a successful completion is received.
     <br>If a failed completion is emitted, it is forwarded downstream.
@@ -22,7 +22,7 @@ Operators extending a given pipeline:
     This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s `maxPublishers`, which specifies the maximum demand requested to the upstream at any given time.
 
 -   `handleEnd` executes (only once) the provided closure when the publisher completes (whether successfully or with a failure) or when the publisher gets cancelled.
-    <br> It performs the same operation that the standard `handleEvents(receiveSubscription:receiveOutput:receiveCompletion:receiveCancel:receiveRequest:)` would perform if you add the a similar closure to `receiveCompletion` and `receiveCancel`.
+    <br> It performs the same operation that the standard `handleEvents(receiveSubscription:receiveOutput:receiveCompletion:receiveCancel:receiveRequest:)` would perform if you add similar closures to `receiveCompletion` and `receiveCancel`.
 
     ```swift
     let publisher = upstream.handleEnd { (completion) in
@@ -34,7 +34,7 @@ Operators extending a given pipeline:
     }
     ```
 
--   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement (similar to `Future`).
+-   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement.
 
     ```swift
     let publisher = [1, 2].publisher.asyncMap { (value, promise) in
@@ -63,9 +63,9 @@ Operators extending a given pipeline:
     The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
     <br>This operator also provides a `try` variant accepting a result (instead of a value).
 
-Operators acting as subscribers:
+### Subscriber Operators
 
--   `result` subscribes to the receiving publisher and executes the provided closure when a single value followed by a successful completion is received.
+-   `result` subscribes to the receiving publisher and executes the provided closure when a value is received.
     <br>In case of failure, the handler is executed with such failure.
 
     ```swift
@@ -77,12 +77,24 @@ Operators acting as subscribers:
     }
     ```
 
-    The operator lets you optionally generate an error (which will be consumed by your `handler`) for unexpected cases, such as when more than one value are received.
+    The operator lets you optionally generate an error (which will be consumed by your `handler`) for cases where upstream completes without a value.
 
-# Publishers
+-   `sink(fixedDemand:)` subscribes upstream and request exactly `fixedDemand` values (after which the subscriber completes).
+    <br>The subscriber may receive zero to `fixedDemand` of values before completing, but never more than that.
+
+    ```swift
+    let cancellable = upstream.sink(fixedDemand: 5, receiveCompletion: { (completion) in ... }) { (value) in ... }
+    ```
+
+-   `sink(maxDemand:)` subscribes upstream requesting `maxDemand` values and always keeping the same backpressure.
+    ```swift
+    let cancellable = upstream.sink(maxDemand: 3) { (value) in ... }
+    ```
+
+## Publishers
 
 -   `Deferred...` publishers accept a closure that is executed once a _greater-than-zero_ demand is requested.
-    <br>They have several flavors:
+    <br>There are several flavors:
 
     -   `DeferredValue` emits a single value and then completes.
         <br>The value is not provided/cached, but instead a closure will generate it. The closure is executed once a positive subscription is received.
@@ -104,10 +116,10 @@ Operators acting as subscribers:
         }
         ```
 
-    -   `DeferredCompletion` offers the same functionality as `DeferredValue`, but the closure only generates a completion event.
+    -   `DeferredComplete` offers the same functionality as `DeferredValue`, but the closure only generates a completion event.
 
         ```swift
-        let publisher = DeferredCompletion {
+        let publisher = DeferredComplete {
             return errorOrNil
         }
         ```
@@ -132,9 +144,7 @@ Operators acting as subscribers:
 
 -   `Then` provides the functionality of the `then` operator.
 
-## Extra Functionality
-
-The following are a grab-bag of extra functionality added to Combine:
+### Extra Functionality
 
 -   `Publishers.PrefetchStrategy` has been extended with a `.fatalError(message:file:line:)` option to stop execution if the buffer is filled.
     <br>This is useful during development and debugging and for cases when you are sure the buffer will never be filled.
@@ -143,7 +153,27 @@ The following are a grab-bag of extra functionality added to Combine:
     publisher.buffer(size: 10, prefetch: .keepFull, whenFull: .fatalError())
     ```
 
-# Testing
+## Subscribers
+
+-   `FixedSink` requests a fixed amount of values upon subscription and once if has received them all it completes/cancel the pipeline.
+    <br>The values are requested through backpressure, so no more than the allowed amount of values are generated upstream.
+
+    ```swift
+    let subscriber = FixedSink(demand: 5) { (value) in ... }
+    upstream.subscribe(subscriber)
+    ```
+
+-   `GraduatedSink` requests a fixed amount of values upon subscription and always keep the same demand by asking one more value upon input reception.
+    <br>The standard `Subscribers.Sink` requests an `.unlimited` amount of values upon subscription. This might not be what we want since some times a control of in-flight values might be desirable (e.g. allowing only _n_ in-flight\* API calls at the same time).
+
+    ```swift
+    let subscriber = GraduatedSink(maxDemand: 3) { (value) in ... }
+    upstream.subscribe(subscriber)
+    ```
+
+> The names for these subscribers are not very good/accurate. Any suggestion is appreciated.
+
+## Testing
 
 Conbini provides convenience subscribers to ease code testing. These subscribers make the test wait till a specific expectation is fulfilled (or making the test fail in a negative case). Furthermore, if a timeout ellapses or a expectation is not fulfilled, the affected test line will be marked _in red_ correctly in Xcode.
 
@@ -187,7 +217,7 @@ Conbini provides convenience subscribers to ease code testing. These subscribers
     }
     ```
 
-## Quirks
+### Quirks
 
 The testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
 
@@ -196,7 +226,7 @@ The testing conveniences depend on [XCTest](https://developer.apple.com/document
 
 The rule of thumb is to use `import Conbini` in your regular code (e.g. within your framework or app) and write `import ConbiniForTesting` within your test target files.
 
-# References
+## References
 
 -   Apple's [Combine documentation](https://developer.apple.com/documentation/combine).
 -   [The Combine book](https://store.raywenderlich.com/products/combine-asynchronous-programming-with-swift) is an excellent Ray Wenderlich book about the Combine framework.
@@ -204,4 +234,4 @@ The rule of thumb is to use `import Conbini` in your regular code (e.g. within y
 -   [OpenCombine](https://github.com/broadwaylamb/OpenCombine) is an open source implementation of Apple's Combine framework.
 -   [CombineX](https://github.com/cx-org/CombineX) is an open source implementation of Apple's Combine framework.
 
-> The framework name references both the `Combine` framework and the helpful Japanese convenience stores 😄
+> This framework name references both the `Combine` framework and the helpful Japanese convenience stores 😄

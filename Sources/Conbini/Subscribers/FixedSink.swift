@@ -16,12 +16,12 @@ extension Subscribers {
         /// The closure executed when a completion event is received.
         public private(set) var receiveCompletion: ((Subscribers.Completion<Failure>)->Void)?
         /// The subscriber's state.
-        @LockableState private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,Configuration>
         
         /// Designated initializer specifying the number of expected values.
         /// - precondition: `demand` must be greater than zero.
-        /// - parameter demand: The number of
-        /// - parameter receiveCompletion: The closure executed when a completion event is received.
+        /// - parameter demand: The maximum number of values to be received.
+        /// - parameter receiveCompletion: The closure executed when the provided amount of values are received or a completion event is received.
         /// - parameter receiveValue: The closure executed when a value is received.
         public init(demand: Int, receiveCompletion: ((Subscribers.Completion<Failure>)->Void)? = nil, receiveValue: ((Input)->Void)? = nil) {
             precondition(demand > 0)
@@ -44,7 +44,10 @@ extension Subscribers {
         
         public func receive(_ input: Input) -> Subscribers.Demand {
             self._state.lock()
-            guard var config = self.state.activeConfiguration else { return .none }
+            guard var config = self.state.activeConfiguration else {
+                self._state.unlock()
+                return .none
+            }
             config.receivedValues += 1
             
             if config.receivedValues < self.demand {

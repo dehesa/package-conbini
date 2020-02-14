@@ -38,7 +38,7 @@ extension Async {
         typealias TransformClosure = Async.Closure<Upstream.Output,Value>
         
         /// Enum listing all possible conduit states.
-        @LockableState private var state: State<WaitConfiguration,ActiveConfiguration>
+        @Lock private var state: State<WaitConfiguration,ActiveConfiguration>
         
         /// Creates a representation of an `SequentialMap` publisher.
         init(downstream: Downstream, closure: @escaping TransformClosure) {
