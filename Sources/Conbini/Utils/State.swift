@@ -77,13 +77,13 @@ extension Lock {
     /// Switches the state from `.awaitingSubscription` to `.active` by providing the active configuration parameters.
     /// - If the state is already in `.active`, this function crashes.
     /// - If the state is `.terminated`, no work is performed.
-    /// - parameter priviledgeHandler: Code executed within the unfair locks. Don't call anywhere here; just perform computations.
+    /// - parameter atomic: Code executed within the unfair locks. Don't call anywhere here; just perform computations.
     /// - returns: The active configuration set after the call of this function.
-    func activate(locking priviledgeHandler: (_ config: WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
+    func activate(atomic: (WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
         self.lock()
         switch self.state {
         case .awaitingSubscription(let config):
-            let configuration = priviledgeHandler(config)
+            let configuration = atomic(config)
             self.state = .active(configuration)
             self.unlock()
             return configuration

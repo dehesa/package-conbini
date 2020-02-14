@@ -28,7 +28,7 @@ extension Subscribers {
             self.demand = demand
             self.receiveValue = receiveValue
             self.receiveCompletion = receiveCompletion
-            self._state = .init(wrappedValue: .awaitingSubscription(()))
+            self.state = .awaitingSubscription(())
         }
         
         deinit {
@@ -36,7 +36,7 @@ extension Subscribers {
         }
         
         public func receive(subscription: Subscription) {
-            guard case .some = self._state.activate(locking: { _ in Configuration(upstream: subscription, receivedValues: 0) }) else {
+            guard case .some = self._state.activate(atomic: { _ in .init(upstream: subscription, receivedValues: 0) }) else {
                 return subscription.cancel()
             }
             subscription.request(.max(self.demand))

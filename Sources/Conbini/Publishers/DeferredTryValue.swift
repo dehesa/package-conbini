@@ -34,7 +34,7 @@ extension DeferredTryValue {
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter closure: Closure in charge of generating the emitted value.
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .init(wrappedValue: .active(.init(downstream: downstream, closure: closure)))
+            self.state = .active(.init(downstream: downstream, closure: closure))
         }
         
         func request(_ demand: Subscribers.Demand) {

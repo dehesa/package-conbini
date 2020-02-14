@@ -44,7 +44,7 @@ extension Async {
         
         /// Creates a representation of an `SequentialTryMap` publisher.
         init(downstream: Downstream, closure: @escaping TransformClosure) {
-            self._state = .init(wrappedValue: .awaitingSubscription(.init(downstream: downstream, closure: closure)))
+            self.state = .awaitingSubscription(.init(downstream: downstream, closure: closure))
         }
         
         deinit {
@@ -57,7 +57,7 @@ extension Async {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, closure: $0.closure) }) else {
+            guard let config = self._state.activate(atomic: { .init(upstream: subscription, downstream: $0.downstream, closure: $0.closure) }) else {
                 return subscription.cancel()
             }
             config.downstream.receive(subscription: self)

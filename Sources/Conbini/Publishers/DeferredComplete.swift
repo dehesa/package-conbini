@@ -42,7 +42,7 @@ extension DeferredComplete {
         @Lock private var state: State<Void,Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self._state = .init(wrappedValue: .active(.init(downstream: downstream, closure: closure)))
+            self.state = .active(.init(downstream: downstream, closure: closure))
         }
         
         func request(_ demand: Subscribers.Demand) {

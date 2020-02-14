@@ -10,7 +10,14 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 ### Publisher Operators
 
--   `then` ignores all values and executes the provided publisher once a successful completion is received.
+-   `retry(on:intervals:)` attempts to recreate a failed subscription with the upstream publisher a given amount of times and waiting the specified number of seconds between failed attempts.
+
+    ```swift
+    let apiCalls.retry(on: queue, intervals: [0.5, 2, 5])
+    // Same functionality to retry(3), but waiting between attemps 0.5, 2, and 3 seconds after a failed attempt.
+    ```
+
+-   `then(maxDemand:_:)` ignores all values and executes the provided publisher once a successful completion is received.
     <br>If a failed completion is emitted, it is forwarded downstream.
 
     ```swift
@@ -21,7 +28,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s `maxPublishers`, which specifies the maximum demand requested to the upstream at any given time.
 
--   `handleEnd` executes (only once) the provided closure when the publisher completes (whether successfully or with a failure) or when the publisher gets cancelled.
+-   `handleEnd(_:)` executes (only once) the provided closure when the publisher completes (whether successfully or with a failure) or when the publisher gets cancelled.
     <br> It performs the same operation that the standard `handleEvents(receiveSubscription:receiveOutput:receiveCompletion:receiveCancel:receiveRequest:)` would perform if you add similar closures to `receiveCompletion` and `receiveCancel`.
 
     ```swift
@@ -34,7 +41,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     }
     ```
 
--   `asyncMap` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement.
+-   `asyncMap(_:)` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement.
 
     ```swift
     let publisher = [1, 2].publisher.asyncMap { (value, promise) in
@@ -47,7 +54,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
     This operator also provides a `try` variant accepting a result (instead of a value).
 
--   `sequentialMap` transform elements received from upstream (as `asyncMap`) with the twist that it allows you to call multiple times the `promise` callback; effectively transforming one value into many results.
+-   `sequentialMap(_:)` transform elements received from upstream (as `asyncMap`) with the twist that it allows you to call multiple times the `promise` callback; effectively transforming one value into many results.
 
     ```swift
     let publisher = [1, 2].publisher.sequentialMap { (value, promise) in
@@ -65,7 +72,7 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
 
 ### Subscriber Operators
 
--   `result` subscribes to the receiving publisher and executes the provided closure when a value is received.
+-   `result(onEmpty:_:)` subscribes to the receiving publisher and executes the provided closure when a value is received.
     <br>In case of failure, the handler is executed with such failure.
 
     ```swift
@@ -142,7 +149,9 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
         `Deferred...` closures await for subscriptions and a _greater-than-zero_ demand before executing. This also means, the closure will re-execute for any new subscriber.
     -   `Deferred` is the most similar in functionality, but it only accepts a publisher.
 
+-   `DelayedRetry` provides the functionality of the `retry(on:intervals:)` operator.
 -   `Then` provides the functionality of the `then` operator.
+-   `HandleEnd` provides the functionality of the `handleEnd(_:)` operator.
 
 ### Extra Functionality
 

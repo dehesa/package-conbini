@@ -64,7 +64,7 @@ extension Publishers.Then {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else {
+            guard let config = self._state.activate(atomic: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else {
                 return subscription.cancel()
             }
             config.downstream.receive(subscription: self)

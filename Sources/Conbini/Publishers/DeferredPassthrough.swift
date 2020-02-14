@@ -37,7 +37,7 @@ extension DeferredPassthrough {
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
         init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {
-            self._state = .init(wrappedValue: .awaitingSubscription(.init(upstream: upstream, downstream: downstream, closure: closure)))
+            self.state = .awaitingSubscription(.init(upstream: upstream, downstream: downstream, closure: closure))
         }
         
         deinit {
@@ -45,7 +45,7 @@ extension DeferredPassthrough {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure)) }) else {
+            guard let config = self._state.activate(atomic: { .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure)) }) else {
                 return subscription.cancel()
             }
             config.downstream.receive(subscription: self)

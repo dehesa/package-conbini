@@ -46,7 +46,7 @@ extension Publishers.HandleEnd {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(locking: { ActiveConfiguration(upstream: subscription, closure: $0.closure, downstream: $0.downstream) }) else {
+            guard let config = self._state.activate(atomic: { .init(upstream: subscription, closure: $0.closure, downstream: $0.downstream) }) else {
                 return subscription.cancel()
             }
             config.downstream.receive(subscription: self)
@@ -55,8 +55,8 @@ extension Publishers.HandleEnd {
         func request(_ demand: Subscribers.Demand) {
             self._state.lock()
             guard let config = self.state.activeConfiguration else { return self._state.unlock() }
-            config.upstream.request(demand)
             self._state.unlock()
+            config.upstream.request(demand)
         }
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
