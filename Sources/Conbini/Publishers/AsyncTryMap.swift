@@ -10,7 +10,7 @@ extension Publishers {
         /// - parameter result: The transformation result.
         /// - parameter request: Whether the closure want to continue sending values or it is done.
         /// - returns: Enum indicating whether the closure can keep calling this promise.
-        public typealias Promise = (_ result: Result<(value: Output, request: Request),Swift.Error>) -> Permission
+        public typealias Promise = (_ result: Result<(value: Output, request: Publishers.Async.Request),Swift.Error>) -> Publishers.Async.Permission
         /// Checks whether the publisher is already cancelled or it is still operating.
         /// - returns: Boolean indicating whether the publisher has been already cancelled (`true`) or it is still active (`false`).
         public typealias CancelCheck = () -> Bool
@@ -187,7 +187,7 @@ extension Publishers.AsyncTryMap.Conduit {
             let downstream = config.downstream
             config.demand.expected -= 1
             
-            let (value, request): (Output, P.Request)
+            let (value, request): (Output, Publishers.Async.Request)
             switch result {
             case .success(let result):
                 (value, request) = result

@@ -10,7 +10,7 @@ extension Publishers {
         /// - parameter result: The transformation result.
         /// - parameter request: Whether the closure want to continue sending values or it is done.
         /// - returns: Enum indicating whether the closure can keep calling this promise.
-        public typealias Promise = (_ result: Output, _ request: Request) -> Permission
+        public typealias Promise = (_ result: Output, _ request: Publishers.Async.Request) -> Publishers.Async.Permission
         /// Checks whether the publisher is already cancelled or it is still operating.
         /// - returns: Boolean indicating whether the publisher has been already cancelled (`true`) or it is still active (`false`).
         public typealias CancelCheck = () -> Bool
@@ -47,31 +47,6 @@ extension Publishers {
         public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
             let conduit = Conduit(downstream: subscriber, parallel: self.parallel, closure: self.closure)
             self.upstream.subscribe(conduit)
-        }
-    }
-}
-
-extension Publishers.AsyncMap {
-    /// Indication whether the transformation closure will continue emitting values (i.e. `.continue`) or it is done (i.e. `finished`).
-    public enum Request: Equatable {
-        /// The transformation closure will continue emitting values. Failing to do so will make the publisher to never complete nor process further upstream values.
-        case `continue`
-        /// The transformation closure is done and further upstream values may be processed.
-        case finished
-    }
-    
-    /// The permission returned by a promise.
-    public enum Permission: ExpressibleByBooleanLiteral, Equatable {
-        /// The transformation closure is allowed to send a new value.
-        case allowed
-        /// The transformation closure is forbidden to send a new value. If it tries to do so, it will get ignored.
-        case forbidden
-        
-        public init(booleanLiteral value: BooleanLiteralType) {
-            switch value {
-            case true: self = .allowed
-            case false: self = .forbidden
-            }
         }
     }
 }

@@ -32,8 +32,8 @@ extension Publisher {
     /// ```
     /// [0, 1, 2].publisher.asyncTryMap { (value, isCancelled, promise) in
     ///    queue.async {
-    ///        promise(.success(value * 2, .continue))
-    ///        promise(.success(value * 4, .continue))
+    ///        promise(.success((value * 2, .continue)))
+    ///        promise(.success((value * 4, .continue)))
     ///        promise(.failure(error))
     ///    }
     /// }
