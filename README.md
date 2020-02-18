@@ -43,34 +43,21 @@ Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squee
     }
     ```
 
--   `asyncMap(_:)` transforms elements received from upstream (similar to `map`), but the result is returned in a promise instead of using the `return` statement.
+-   `asyncMap(_:)` transforms elements received from upstream (similar to `map`), but the result is returned from a promise instead of using the `return` statement.
+Furthermore, promises can be called multipled times effectively transforming one upstream value into many outputs.
 
     ```swift
-    let publisher = [1, 2].publisher.asyncMap { (value, promise) in
-        queue.async {
-            let newValue = String(value * 10)
-            promise(newValue)
+    let publisher = [1, 10, 100].publisher.asyncMap { (value, isCancelled, promise) in
+        queue.asyncAfter(deadline: ....) {
+            guard isCancelled else { return }
+            promise(newValue1, .continue)
+            promise(newValue2, .continue)
+            promise(newValue3, .finished)
         }
     }
     ```
 
     This operator also provides a `try` variant accepting a result (instead of a value).
-
--   `sequentialMap(_:)` transform elements received from upstream (as `asyncMap`) with the twist that it allows you to call multiple times the `promise` callback; effectively transforming one value into many results.
-
-    ```swift
-    let publisher = [1, 2].publisher.sequentialMap { (value, promise) in
-        queue.async {
-            promise(value * 10 + 1, .continue)
-            promise(value * 10 + 2, .continue)
-            promise(value * 10 + 3, .finished)
-        }
-    }
-    // Downstream will receive: [11, 12, 13, 21, 22, 23]
-    ```
-
-    The `SequentialMap` publisher executes one upstream value at a time. It doesn't request or fetch a previously sent upstream value till the `transform` closure is fully done and `promise(..., .finished)` has been called.
-    <br>This operator also provides a `try` variant accepting a result (instead of a value).
 
 ### Subscriber Operators
 

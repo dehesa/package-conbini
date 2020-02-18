@@ -25,6 +25,14 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
         }
     }
     
+    /// Boolean indicating if the state is still active.
+    var isActive: Bool {
+        switch self {
+        case .active: return true
+        case .awaitingSubscription, .terminated: return false
+        }
+    }
+    
     /// Returns the `ActiveConfiguration` if the receiving state is at `.active`. `nil` for `.terminated` states, and it produces a fatal error otherwise.
     ///
     /// It is used on places where `Combine` promises that a subscription might only be in `.active` or `.terminated` state, but never on `.awaitingSubscription`.
@@ -33,6 +41,14 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
         case .active(let config): return config
         case .terminated: return nil
         case .awaitingSubscription: fatalError()
+        }
+    }
+    
+    /// Boolean indicating if the state has been terminated.
+    var isTerminated: Bool {
+        switch self {
+        case .terminated: return true
+        case .awaitingSubscription, .active: return false
         }
     }
 }
