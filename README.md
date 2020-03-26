@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="Assets/Conbini.svg" alt="Conbini icon"/>
+    <img src="docs/Assets/Conbini.svg" alt="Conbini icon"/>
 </p>
 
 Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squeeze the most out of Apple's [Combine framework](https://developer.apple.com/documentation/combine).

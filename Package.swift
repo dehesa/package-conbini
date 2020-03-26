@@ -12,9 +12,9 @@ let package = Package(
     ],
     dependencies: [],
     targets: [
-        .target(name: "Conbini", dependencies: []),
-        .target(name: "ConbiniForTesting", dependencies: [.target(name: "Conbini")], path: "Sources/Testing"),
-        .testTarget(name: "ConbiniTests", dependencies: ["Conbini"]),
-        .testTarget(name: "ConbiniForTestingTests", dependencies: ["ConbiniForTesting"], path: "Tests/TestingTests")
+        .target(name: "Conbini", dependencies: [], path: "sources/Conbini"),
+        .target(name: "ConbiniForTesting", dependencies: [.target(name: "Conbini")], path: "sources/Testing"),
+        .testTarget(name: "ConbiniTests", dependencies: ["Conbini"], path: "tests/ConbiniTests"),
+        .testTarget(name: "ConbiniForTestingTests", dependencies: ["ConbiniForTesting"], path: "tests/TestingTests")
     ]
 )
