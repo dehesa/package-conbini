@@ -19,10 +19,11 @@ extension DelayedRetryOpTests {
         
         let input = 0..<10
         var output = [Int]()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.operators.retry")
         
         let cancellable = input.publisher
             .map { $0 * 2 }
-            .retry(on: DispatchQueue.global(), intervals: [0, 0.2, 0.5])
+            .retry(on: queue, intervals: [0, 0.2, 0.5])
             .map { $0 * 2 }
             .sink(receiveCompletion: {
                 guard case .finished = $0 else { return XCTFail("A failure completion has been received, when a successful one was expected") }
@@ -42,6 +43,7 @@ extension DelayedRetryOpTests {
         var output = [Int]()
         var passes = 0
         var marker: (start: CFAbsoluteTime?, end: CFAbsoluteTime?) = (nil, nil)
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.operators.retry")
         
         let cancellable = DeferredPassthrough<Int,CustomError> { (subject) in
                 passes += 1
@@ -57,7 +59,7 @@ extension DelayedRetryOpTests {
                 } else {
                     subject.send(completion: .finished)
                 }
-            }.retry(on: DispatchQueue.global(), intervals: [0.2, 0.4, 0.6])
+            }.retry(on: queue, intervals: [0.2, 0.4, 0.6])
             .sink(receiveCompletion: {
                 guard case .finished = $0 else { return XCTFail("A failure completion has been received, when a successful one was expected") }
                 e.fulfill()
@@ -76,20 +78,21 @@ extension DelayedRetryOpTests {
         
         let intervals: [TimeInterval] = [0.1, 0.3, 0.5]
         var markers = [CFAbsoluteTime]()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.operators.retry")
         
         let cancellable = Deferred { Fail(outputType: Int.self, failure: CustomError()) }
             .handleEvents(receiveCompletion: {
                 markers.append(CFAbsoluteTimeGetCurrent())
                 guard case .failure = $0 else { return XCTFail("A success completion has been received, when a failure one was expected") }
             })
-            .retry(on: DispatchQueue.global(), intervals: intervals)
+            .retry(on: queue, intervals: intervals)
             .sink(receiveCompletion: {
                 markers.append(CFAbsoluteTimeGetCurrent())
                 guard case .failure = $0 else { return XCTFail("A success completion has been received, when a failure one was expected") }
                 e.fulfill()
             }, receiveValue: { _ in XCTFail("A value has been received when none were expected") })
         
-        self.wait(for: [e], timeout: 1)
+        self.wait(for: [e], timeout: 3)
         XCTAssertEqual(markers.count, 5)
         XCTAssertGreaterThan(markers[1] - intervals[0], intervals[0])
         XCTAssertGreaterThan(markers[2] - intervals[1], intervals[1])

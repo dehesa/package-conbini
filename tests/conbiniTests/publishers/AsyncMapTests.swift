@@ -19,7 +19,7 @@ extension AsyncMapTests {
     /// Test async unlimited map operation (just one value asynchronous transformation).
     func testAsyncMapUnlimitedSingleValue() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         Just(1).asyncMap(parallel: .unlimited) { (value, isCancelled, promise) in
@@ -43,7 +43,7 @@ extension AsyncMapTests {
     /// Test async unlimited map operation (array of asynchronous transformation).
     func testAsyncMapUnlimitedArray() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
 
         var received: [Int] = .init()
         [1, 2, 3, 4].publisher
@@ -89,7 +89,7 @@ extension AsyncMapTests {
     /// Tests async restrict map operation (array of asynchronous transformation).
     func testAsyncMapRestrictedArrayOne() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         [1, 2, 3, 4].publisher
@@ -107,7 +107,7 @@ extension AsyncMapTests {
     
     func testAsyncMapRestrictedArrayTwo() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         [1, 2, 3, 4, 5, 6, 7, 8].publisher
@@ -151,7 +151,7 @@ extension AsyncMapTests {
     /// Test async unlimited map operation (just one value asynchronous transformation).
     func testAsyncTryMapUnlimitedSingleValue() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         Just(1).asyncTryMap(parallel: .unlimited) { (value, _, promise) in
@@ -171,7 +171,7 @@ extension AsyncMapTests {
     /// Test async unlimited map operation (array of asynchronous transformation).
     func testAsyncTryMapUnlimitedArray() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         [1, 2, 3, 4].publisher
@@ -213,7 +213,7 @@ extension AsyncMapTests {
     /// Tests async unlimited map operation (where one single error is published).
     func testAsyncTryMapUnlimitedError() {
         let exp = self.expectation(description: "Publisher fails")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         Just(1).asyncTryMap(parallel: .unlimited) { (value, isCancelled, promise) in
@@ -236,7 +236,7 @@ extension AsyncMapTests {
     /// Tests async restrict map operation (array of asynchronous transformation).
     func testAsyncTryMapRestrictedArrayOne() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         [1, 2, 3, 4].publisher
@@ -256,7 +256,7 @@ extension AsyncMapTests {
     
     func testAsyncTryMapRestrictedArrayTwo() {
         let exp = self.expectation(description: "Publisher completes")
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.publishers.asyncmap")
         
         var received: [Int] = .init()
         [1, 2, 3, 4, 5, 6, 7, 8].publisher

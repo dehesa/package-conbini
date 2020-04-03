@@ -50,16 +50,16 @@ extension GraduatedSinkTests {
         subject.map { $0 * 2}
             .subscribe(subscriber)
         
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.subscribers.graduatedSink")
         for i in input {
-            queue.asyncAfter(deadline: .now() + .milliseconds(i * 10)) { subject.send(i) }
+            queue.asyncAfter(deadline: .now() + .milliseconds(i * 50)) { subject.send(i) }
         }
         
-        queue.asyncAfter(deadline: .now() + .milliseconds((input.last! + 1) * 10)) {
+        queue.asyncAfter(deadline: .now() + .milliseconds((input.last! + 1) * 50)) {
             subject.send(completion: .failure(CustomError()))
         }
         
-        self.wait(for: [e], timeout: 1)
+        self.wait(for: [e], timeout: 4)
         XCTAssertEqual(input.map { $0 * 2 }, received)
         subscriber.cancel()
     }

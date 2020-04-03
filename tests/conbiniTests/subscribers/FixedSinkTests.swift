@@ -71,7 +71,7 @@ extension FixedSinkTests {
         subject.map { $0 * 2}
             .subscribe(subscriber)
         
-        let queue = DispatchQueue.global()
+        let queue = DispatchQueue(label: "io.dehesa.conbini.tests.subscribers.fixedSink")
         for i in input {
             queue.asyncAfter(deadline: .now() + .milliseconds(i * 10)) { subject.send(i) }
         }
