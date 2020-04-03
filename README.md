@@ -1,11 +1,11 @@
 <p align="center">
-    <img src="docs/Assets/Conbini.svg" alt="Conbini icon"/>
+    <img src="docs/assets/Conbini.svg" alt="Conbini icon"/>
 </p>
 
 <p align="center">
-    <img src="docs/Assets/Badges/Swift.svg" alt="Swift 5.2">
-    <img src="docs/Assets/Badges/Apple.svg" alt="macOS 10.15+ - iOS 13+ - tvOS 13+ - watchOS 6+">
-    <a href="http://doge.mit-license.org"><img src="docs/Assets/Badges/License.svg" alt="MIT License"></a>
+    <img src="docs/assets/badges/Swift.svg" alt="Swift 5.2">
+    <img src="docs/assets/badges/Apple.svg" alt="macOS 10.15+ - iOS 13+ - tvOS 13+ - watchOS 6+">
+    <a href="http://doge.mit-license.org"><img src="docs/assets/badges/License.svg" alt="MIT License"></a>
 </p>
 
 Conbini provides convenience `Publisher`s, operators, and `Subscriber`s to squeeze the most out of Apple's [Combine framework](https://developer.apple.com/documentation/combine).
