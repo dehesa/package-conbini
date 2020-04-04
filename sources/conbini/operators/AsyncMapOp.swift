@@ -20,7 +20,7 @@ extension Publisher {
     /// - parameter parallel: The maximum number of values being processed at a time. Since the processing is returned in a promise, many upstream values can be processed at a single time point.
     /// - parameter transform: A closure that takes the upstream emitted value and expects a promise to be called with the transformed result.
     /// - returns: A publisher with output `T` and failure `Upstream.Failure`.
-    public func asyncMap<T>(parallel: Subscribers.Demand, _ transform: @escaping Publishers.AsyncMap<Self,T>.Closure) -> Publishers.AsyncMap<Self,T> {
+    @inlinable public func asyncMap<T>(parallel: Subscribers.Demand, _ transform: @escaping Publishers.AsyncMap<Self,T>.Closure) -> Publishers.AsyncMap<Self,T> {
         .init(upstream: self, parallel: parallel, transform: transform)
     }
     
@@ -41,7 +41,7 @@ extension Publisher {
     /// - parameter parallel: The maximum number of values being processed at a time. Since the processing is returned in a promise, many upstream values can be processed at a single time point.
     /// - parameter transform: A closure that takes the upstream emitted value and expects a promise to be called with the transformed result.
     /// - returns: A publisher with output `T` and failure `Swift.Error`.
-    public func asyncTryMap<T>(parallel: Subscribers.Demand, _ transform: @escaping Publishers.AsyncTryMap<Self,T>.Closure) -> Publishers.AsyncTryMap<Self,T> {
+    @inlinable public func asyncTryMap<T>(parallel: Subscribers.Demand, _ transform: @escaping Publishers.AsyncTryMap<Self,T>.Closure) -> Publishers.AsyncTryMap<Self,T> {
         .init(upstream: self, parallel: parallel, transform: transform)
     }
 }

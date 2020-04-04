@@ -53,6 +53,8 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
     }
 }
 
+// MARK: -
+
 /// Property Wrapper used to guard a combine conduit state behind a unfair lock.
 @propertyWrapper internal final class Lock<WaitConfiguration,ActiveConfiguration> {
     /// The type of the value being guarded by the lock.

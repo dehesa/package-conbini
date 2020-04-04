@@ -11,7 +11,7 @@ extension Publisher {
     /// - parameter handler: Returns the result of the publisher.
     /// - parameter result: The value yielded after the subscription.
     /// - returns: `Cancellable` able to stop/cancel the subscription.
-    @discardableResult public func result(onEmpty: @escaping @autoclosure ()->Failure? = nil, _ handler: @escaping (_ result: Result<Output,Failure>)->Void) -> AnyCancellable {
+    @inlinable @discardableResult public func result(onEmpty: @escaping @autoclosure ()->Failure? = nil, _ handler: @escaping (_ result: Result<Output,Failure>)->Void) -> AnyCancellable {
         var value: Output? = nil
         
         let subscriber = Subscribers.FixedSink<Output,Failure>(demand: 1, receiveCompletion: {

@@ -8,7 +8,7 @@ extension Publisher {
     /// - parameter options: The options for the given scheduler.
     /// - parameter intervals: The amount of seconds to wait after a failure occurrence. Negative values are considered zero.
     /// - returns: A publisher that attemps to recreate its subscription to a failed upstream publisher a given amount of times and waiting a given amount of seconds between attemps.
-    public func retry<S>(on scheduler: S, tolerance: S.SchedulerTimeType.Stride? = nil, options: S.SchedulerOptions? = nil, intervals: [TimeInterval]) -> Publishers.DelayedRetry<Self,S> where S:Scheduler {
+    @inlinable public func retry<S>(on scheduler: S, tolerance: S.SchedulerTimeType.Stride? = nil, options: S.SchedulerOptions? = nil, intervals: [TimeInterval]) -> Publishers.DelayedRetry<Self,S> where S:Scheduler {
         .init(upstream: self, scheduler: scheduler, options: options, intervals: intervals)
     }
 }
