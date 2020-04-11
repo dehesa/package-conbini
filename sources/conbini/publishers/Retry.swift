@@ -24,7 +24,7 @@ extension Publishers {
         /// - parameter scheduler: The scheduler used to wait for the specific intervals.
         /// - parameter options: The options for the given scheduler.
         /// - parameter intervals: The amount of seconds to wait after a failure occurrence. Negative values are considered zero.
-        public init(upstream: Upstream, scheduler: S, tolerance: S.SchedulerTimeType.Stride? = nil, options: S.SchedulerOptions? = nil, intervals: [TimeInterval]) {
+        @inlinable public init(upstream: Upstream, scheduler: S, tolerance: S.SchedulerTimeType.Stride? = nil, options: S.SchedulerOptions? = nil, intervals: [TimeInterval]) {
             self.upstream = upstream
             self.scheduler = scheduler
             self.tolerance = tolerance

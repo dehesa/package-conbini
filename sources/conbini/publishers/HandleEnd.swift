@@ -17,7 +17,7 @@ extension Publishers {
         /// Designated initializer providing the upstream publisher and the closure receiving the *ending* event.
         /// - parameter upstream: Upstream publisher chain.
         /// - parameter handle: A closure that executes when the publisher receives a completion event or when the publisher gets cancelled.
-        public init(upstream: Upstream, handle: @escaping Closure) {
+        @inlinable public init(upstream: Upstream, handle: @escaping Closure) {
             self.upstream = upstream
             self.closure = handle
         }

@@ -19,13 +19,13 @@ public struct DeferredComplete<Output,Failure>: Publisher where Failure:Swift.Er
     /// Creates a publisher that completes successfully or fails depending on the result of the given closure.
     /// - parameter output: The output type of this *empty* publisher. It is given here as convenience, since it may help compiler inferral.
     /// - parameter closure: The closure which produces an empty successful completion (if it returns `nil`) or a failure (if it returns an error).
-    public init(output: Output.Type = Output.self, closure: @escaping Closure) {
+    @inlinable public init(output: Output.Type = Output.self, closure: @escaping Closure) {
         self.closure = closure
     }
     
     /// Creates a publisher that fails with the error provided.
     /// - parameter error: *Autoclosure* that will get executed on the first positive request (i.e. a request greater than zero).
-    public init(error: @autoclosure @escaping ()->Failure) {
+    @inlinable public init(error: @autoclosure @escaping ()->Failure) {
         self.closure = { error() }
     }
     

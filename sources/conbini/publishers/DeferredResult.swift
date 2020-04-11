@@ -13,7 +13,7 @@ public struct DeferredResult<Output,Failure:Swift.Error>: Publisher {
     /// Creates a publisher that send a value and completes successfully or just fails depending on the result of the given closure.
     /// - parameter closure: Closure in charge of generating the value to be emitted.
     /// - attention: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
-    public init(closure: @escaping Closure) {
+    @inlinable public init(closure: @escaping Closure) {
         self.closure = closure
     }
     

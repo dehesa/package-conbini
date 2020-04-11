@@ -37,7 +37,7 @@ extension Publishers {
         /// - parameter upstream: The event emitter to the publisher being created.
         /// - parameter parallel: The maximum number of parallel upstream value processing.
         /// - parameter transform: Closure in charge of transforming the values.
-        public init(upstream: Upstream, parallel: Subscribers.Demand, transform: @escaping Closure) {
+        @inlinable public init(upstream: Upstream, parallel: Subscribers.Demand, transform: @escaping Closure) {
             precondition(parallel > 0)
             self.upstream = upstream
             self.parallel = parallel

@@ -18,7 +18,7 @@ public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
     /// Creates a publisher that sends
     /// - parameter setup: The closure for delayed execution.
     /// - remark: Please notice, the pipeline won't complete if the subject within the closure doesn't send `.send(completion:)`.
-    public init(_ setup: @escaping Closure) {
+    @inlinable public init(_ setup: @escaping Closure) {
         self.closure = setup
     }
     

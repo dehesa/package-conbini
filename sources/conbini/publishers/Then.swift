@@ -21,7 +21,7 @@ extension Publishers {
         /// - parameter upstream: Upstream publisher chain which successful completion will trigger the `transform` closure.
         /// - parameter maxDemand: The maximum demand requested to the upstream at the same time.
         /// - parameter transfom: Closure providing the new (or existing) publisher.
-        public init(upstream: Upstream, maxDemand: Subscribers.Demand = .unlimited, transform: @escaping ()->Child) {
+        @inlinable public init(upstream: Upstream, maxDemand: Subscribers.Demand = .unlimited, transform: @escaping ()->Child) {
             precondition(maxDemand > .none)
             self.upstream = upstream
             self.maxDemand = maxDemand
@@ -49,13 +49,13 @@ extension Publishers.Then {
         /// The combine identifier shared with the `DownstreamConduit`.
         let combineIdentifier: CombineIdentifier
         /// The maximum demand requested to the upstream at the same time.
-        private let maxDemand: Subscribers.Demand
+        private let _maxDemand: Subscribers.Demand
         
         /// Designated initializer for this helper establishing the strong bond between the `Conduit` and the created helper.
         init(subscriber: DownstreamConduit<Downstream>, maxDemand: Subscribers.Demand) {
             precondition(maxDemand > .none)
             self.state = .awaitingSubscription(.init(downstream: subscriber))
-            self.maxDemand = maxDemand
+            self._maxDemand = maxDemand
             self.combineIdentifier = subscriber.combineIdentifier
         }
         
@@ -79,7 +79,7 @@ extension Publishers.Then {
             self.state = .active(config)
             self._state.unlock()
             
-            config.upstream.request(self.maxDemand)
+            config.upstream.request(self._maxDemand)
         }
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {

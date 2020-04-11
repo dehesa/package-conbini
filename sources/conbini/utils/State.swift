@@ -17,7 +17,7 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
     /// Returns the `WaitConfiguration` if the receiving state is at `.awaitingSubscription`. `nil` for `.terminated` states, and it produces a fatal error otherwise.
     ///
     /// It is used on places where `Combine` promises that a subscription might only be in `.awaitingSubscription` or `.terminated` state, but never on `.active`.
-    var awaitingConfiguration: WaitConfiguration? {
+    @_transparent var awaitingConfiguration: WaitConfiguration? {
         switch self {
         case .awaitingSubscription(let config): return config
         case .terminated: return nil
@@ -26,7 +26,7 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
     }
     
     /// Boolean indicating if the state is still active.
-    var isActive: Bool {
+    @_transparent var isActive: Bool {
         switch self {
         case .active: return true
         case .awaitingSubscription, .terminated: return false
@@ -36,7 +36,7 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
     /// Returns the `ActiveConfiguration` if the receiving state is at `.active`. `nil` for `.terminated` states, and it produces a fatal error otherwise.
     ///
     /// It is used on places where `Combine` promises that a subscription might only be in `.active` or `.terminated` state, but never on `.awaitingSubscription`.
-    var activeConfiguration: ActiveConfiguration? {
+    @_transparent var activeConfiguration: ActiveConfiguration? {
         switch self {
         case .active(let config): return config
         case .terminated: return nil
@@ -45,7 +45,7 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
     }
     
     /// Boolean indicating if the state has been terminated.
-    var isTerminated: Bool {
+    @_transparent var isTerminated: Bool {
         switch self {
         case .terminated: return true
         case .awaitingSubscription, .active: return false
@@ -61,35 +61,35 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
     typealias Content = State<WaitConfiguration,ActiveConfiguration>
     
     /// Performant non-reentrant unfair lock.
-    private var unfairLock: UnsafeMutablePointer<os_unfair_lock>
+    private var _lock: UnsafeMutablePointer<os_unfair_lock>
     /// Generic variable being guarded by the lock.
-    private var state: Content
+    private var _state: Content
     
     init(wrappedValue: Content) {
-        self.unfairLock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
-        self.unfairLock.initialize(to: os_unfair_lock())
-        self.state = wrappedValue
+        self._lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
+        self._lock.initialize(to: os_unfair_lock())
+        self._state = wrappedValue
     }
     
     deinit {
-        self.unfairLock.deallocate()
+        self._lock.deallocate()
     }
     
     var wrappedValue: Content {
-        get { return self.state }
-        set { self.state = newValue }
+        get { return self._state }
+        set { self._state = newValue }
     }
 }
 
 extension Lock {
     /// Locks the state to other threads.
-    func lock() {
-        os_unfair_lock_lock(self.unfairLock)
+    @_transparent func lock() {
+        os_unfair_lock_lock(self._lock)
     }
     
     /// Unlocks the state for other threads.
-    func unlock() {
-        os_unfair_lock_unlock(self.unfairLock)
+    @_transparent func unlock() {
+        os_unfair_lock_unlock(self._lock)
     }
     
     /// Switches the state from `.awaitingSubscription` to `.active` by providing the active configuration parameters.
@@ -99,10 +99,10 @@ extension Lock {
     /// - returns: The active configuration set after the call of this function.
     func activate(atomic: (WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
         self.lock()
-        switch self.state {
+        switch self._state {
         case .awaitingSubscription(let config):
             let configuration = atomic(config)
-            self.state = .active(configuration)
+            self._state = .active(configuration)
             self.unlock()
             return configuration
         case .terminated:
@@ -115,8 +115,8 @@ extension Lock {
     /// Nullify the state and returns the previous state value.
     @discardableResult func terminate() -> Content {
         self.lock()
-        let result = self.state
-        self.state = .terminated
+        let result = self._state
+        self._state = .terminated
         self.unlock()
         return result
     }

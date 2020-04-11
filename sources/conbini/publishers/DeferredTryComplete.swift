@@ -19,7 +19,7 @@ public struct DeferredTryComplete<Output>: Publisher {
     
     /// Creates a publisher that send a value and completes successfully or just fails depending on the result of the given closure.
     /// - parameter closure: The closure which produces an empty successful completion or a failure (if it throws).
-    public init(closure: @escaping Closure) {
+    @inlinable public init(closure: @escaping Closure) {
         self.closure = closure
     }
     
