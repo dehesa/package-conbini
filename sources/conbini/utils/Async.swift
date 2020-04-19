@@ -18,7 +18,7 @@ extension Publishers {
             /// The transformation closure is forbidden to send a new value. If it tries to do so, it will get ignored.
             case forbidden
             
-            @_transparent public init(booleanLiteral value: BooleanLiteralType) {
+            public init(booleanLiteral value: BooleanLiteralType) {
                 switch value {
                 case true: self = .allowed
                 case false: self = .forbidden

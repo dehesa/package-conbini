@@ -59,6 +59,7 @@ extension Publishers.DelayedRetry {
         
         deinit {
             self.cancel()
+            self._state.deinitialize()
         }
         
         func receive(subscription: Subscription) {

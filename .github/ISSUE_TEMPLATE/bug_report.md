@@ -18,9 +18,10 @@ Steps to reproduce the behavior:
 ## Expected behavior
 A clear and concise description of what you expected to happen.
 
-## System (please complete the following information)
+## System
  - OS: [e.g. macOS 10.15.4, iOS 13.4]
- - Conbini: [e.g. 0.5.0]
+ - CodableCSV: [e.g. 0.5.1]
+   You can check this in your SPM `Package.swift` file (or `Package.resolved` file). Alternatively, go to Xcode's Source Control Navigator (`⌘+2`) and click on `Conbini`.
 
 ## Additional context
 Add any other context about the problem here.

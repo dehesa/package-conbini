@@ -67,6 +67,7 @@ extension Publishers.AsyncMap {
         
         deinit {
             self.cancel()
+            self._state.deinitialize()
         }
         
         func receive(subscription: Subscription) {

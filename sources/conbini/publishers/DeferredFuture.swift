@@ -35,6 +35,10 @@ extension DeferredFuture {
             self.state = .active(.init(downstream: downstream, step: .awaitingDemand(closure: closure)))
         }
         
+        deinit {
+            self._state.deinitialize()
+        }
+        
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0 else { return }
             

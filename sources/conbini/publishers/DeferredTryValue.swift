@@ -37,6 +37,10 @@ extension DeferredTryValue {
             self.state = .active(.init(downstream: downstream, closure: closure))
         }
         
+        deinit {
+            self._state.deinitialize()
+        }
+        
         func request(_ demand: Subscribers.Demand) {
             guard demand > 0, case .active(let config) = self._state.terminate() else { return }
             

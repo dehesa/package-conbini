@@ -27,6 +27,7 @@ extension Subscribers {
         
         deinit {
             self.cancel()
+            self._state.deinitialize()
         }
         
         public func receive(subscription: Subscription) {

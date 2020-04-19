@@ -56,7 +56,9 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
 // MARK: -
 
 /// Property Wrapper used to guard a combine conduit state behind a unfair lock.
-@propertyWrapper internal final class Lock<WaitConfiguration,ActiveConfiguration> {
+///
+/// - attention: Always make sure to deinitialize the lock.
+@propertyWrapper internal struct Lock<WaitConfiguration,ActiveConfiguration> {
     /// The type of the value being guarded by the lock.
     typealias Content = State<WaitConfiguration,ActiveConfiguration>
     
@@ -71,17 +73,11 @@ internal enum State<WaitConfiguration,ActiveConfiguration>: ExpressibleByNilLite
         self._state = wrappedValue
     }
     
-    deinit {
-        self._lock.deallocate()
-    }
-    
     var wrappedValue: Content {
         get { return self._state }
         set { self._state = newValue }
     }
-}
 
-extension Lock {
     /// Locks the state to other threads.
     @_transparent func lock() {
         os_unfair_lock_lock(self._lock)
@@ -92,12 +88,16 @@ extension Lock {
         os_unfair_lock_unlock(self._lock)
     }
     
+    @_transparent func deinitialize() {
+        self._lock.deallocate()
+    }
+    
     /// Switches the state from `.awaitingSubscription` to `.active` by providing the active configuration parameters.
     /// - If the state is already in `.active`, this function crashes.
     /// - If the state is `.terminated`, no work is performed.
     /// - parameter atomic: Code executed within the unfair locks. Don't call anywhere here; just perform computations.
     /// - returns: The active configuration set after the call of this function.
-    func activate(atomic: (WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
+    mutating func activate(atomic: (WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
         self.lock()
         switch self._state {
         case .awaitingSubscription(let config):
@@ -113,7 +113,7 @@ extension Lock {
     }
     
     /// Nullify the state and returns the previous state value.
-    @discardableResult func terminate() -> Content {
+    @discardableResult mutating func terminate() -> Content {
         self.lock()
         let result = self._state
         self._state = .terminated
