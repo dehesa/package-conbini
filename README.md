@@ -40,6 +40,13 @@ let package = Package(
 import Conbini
 ```
 
+The testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
+
+-   `import Conbini` includes all code excepts the testing conveniences.
+-   `import ConbiniForTesting` includes the testing functionality only.
+
+The rule of thumb is to use `import Conbini` in your regular code (e.g. within your framework or app) and write `import ConbiniForTesting` within your test target files.
+
 </p></details>
 </ul>
 
@@ -48,33 +55,6 @@ import Conbini
 Publisher Operators:
 
 <ul>
-<details><summary><code>retry(on:intervals:)</code></summary><p>
-
-Attempts to recreate a failed subscription with the upstream publisher a given amount of times waiting the specified number of seconds between failed attempts.
-
-```swift
-let apiCallPublisher.retry(on: queue, intervals: [0.5, 2, 5])
-// Same functionality to retry(3), but waiting between attemps 0.5, 2, and 5 seconds after each failed attempt.
-```
-
-This operator accept any scheduler conforming to `Scheduler` (e.g. `DispatchQueue`, `RunLoop`, etc). You can also optionally tweak the tolerance and scheduler operations.
-
-</p></details>
-
-
-<details><summary><code>then(maxDemand:_:)</code></summary><p>
-
-Ignores all values and executes the provided publisher once a successful completion is received. If a failed completion is emitted, it is forwarded downstream.
-
-```swift
-let publisher = setConfigurationOnServer.then {
-    subscribeToWebsocket.publisher
-}
-```
-
-This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s `maxPublishers`, which specifies the maximum demand requested to the upstream at any given time.
-
-</p></details>
 
 <details><summary><code>handleEnd(_:)</code></summary><p>
 
@@ -91,6 +71,33 @@ let publisher = upstream.handleEnd { (completion) in
     }
 }
 ```
+
+</p></details>
+
+<details><summary><code>retry(on:intervals:)</code></summary><p>
+
+Attempts to recreate a failed subscription with the upstream publisher a given amount of times waiting the specified number of seconds between failed attempts.
+
+```swift
+let apiCallPublisher.retry(on: queue, intervals: [0.5, 2, 5])
+// Same functionality to retry(3), but waiting between attemps 0.5, 2, and 5 seconds after each failed attempt.
+```
+
+This operator accept any scheduler conforming to `Scheduler` (e.g. `DispatchQueue`, `RunLoop`, etc). You can also optionally tweak the tolerance and scheduler operations.
+
+</p></details>
+
+<details><summary><code>then(maxDemand:_:)</code></summary><p>
+
+Ignores all values and executes the provided publisher once a successful completion is received. If a failed completion is emitted, it is forwarded downstream.
+
+```swift
+let publisher = setConfigurationOnServer.then {
+    subscribeToWebsocket.publisher
+}
+```
+
+This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s `maxPublishers`, which specifies the maximum demand requested to the upstream at any given time.
 
 </p></details>
 
@@ -117,6 +124,44 @@ This operator also provides a `try` variant accepting a result (instead of a val
 Subscriber Operators:
 
 <ul>
+<details><summary><code>assign(to:on:)</code> variants.</summary><p>
+
+Combine's `assign(to:on:)` operation creates memory cycles when the "on" object also holds the publisher's cancellable. A common situation happens when assigning a value to `self`.
+
+```swift
+class CustomObject {
+    var value: Int = 0
+    var cancellable: AnyCancellable? = nil
+
+    func performOperation() {
+        cancellable = numberPublisher.assign(to: \.value, on: self)
+    }
+}
+```
+
+Conbini's `assign(to:onWeak:)` operator points to the given object weakly with the added benefit of cancelling the pipeline when the object is deinitialized.
+
+Conbini also introduces the `assign(to:onUnowned:)` operator which also avoids memory cycles, but uses `unowned` instead.
+
+</p></details>
+
+<details><summary><code>invoke(_:on:)</code> variants.</summary><p>
+
+This operator calls the specified function on the given value/reference passing the upstream value.
+
+```swift
+struct Custom {
+    func performOperation(_ value: Int) { /* do something */ }
+}
+
+let instance = Custom()
+let cancellable = [1, 2, 3].publisher.invoke(Custom.performOperation, on: instance)
+```
+
+Conbini also offers the variants `invoke(_:onWeak:)` and `invoke(_:onUnowned:)`, which avoid memory cycles on reference types.
+
+</p></details>
+
 <details><summary><code>result(onEmpty:_:)</code></summary><p>
 
 It subscribes to the receiving publisher and executes the provided closure when a value is received. In case of failure, the handler is executed with such failure.
@@ -155,11 +200,10 @@ let cancellable = upstream.sink(maxDemand: 3) { (value) in ... }
 </p></details>
 </ul>
 
-
 ## Publishers
 
 <ul>
-<details><summary><code>Deferred...</code></summary><p> 
+<details><summary><code>Deferred</code> variants.</summary><p>
 
 These publishers accept a closure that is executed once a _greater-than-zero_ demand is requested. There are several flavors:
 
@@ -178,7 +222,7 @@ A `Try` variant is also offered, enabling you to `throw` from within the closure
 
 </p></details>
 
-<details><summary><code>DeferredResult</code> offers the same functionality as <code>DeferredValue</code>, but the closure generates a <code>Result</code> instead</summary><p>
+<details><summary><code>DeferredResult</code> forwards downstream a value or a failure depending on the generated <code>Result</code>.</summary><p>
 
 ```swift
 let publisher = DeferredResult {
@@ -189,7 +233,7 @@ let publisher = DeferredResult {
 
 </p></details>
 
-<details><summary><code>DeferredComplete</code> offers the same functionality as `DeferredValue`, but the closure only generates a completion event.</summary><p>
+<details><summary><code>DeferredComplete</code> forwards a completion event (whether success or failure).</summary><p>
 
 ```swift
 let publisher = DeferredComplete {
@@ -201,7 +245,7 @@ A `Try` variant is also offered, enabling you to `throw` from within the closure
 
 </p></details>
 
-<details><summary><code>DeferredPassthrough</code></summary><p>
+<details><summary><code>DeferredPassthrough</code> provides a passthrough subject in a closure to be used to send values downstream.</summary><p>
 
 It is similar to wrapping a `Passthrough` subject on a `Deferred` closure, with the diferrence that the `Passthrough` given on the closure is already _wired_ on the publisher chain and can start sending values right away. Also, the memory management is taken care of and every new subscriber receives a new subject (closure re-execution).
 
@@ -218,9 +262,11 @@ let publisher = DeferredPassthrough { (subject) in
 
 There are several reason for these publishers to exist instead of using other `Combine`-provided closure such as `Just`, `Future`, or `Deferred`:
 
--   `Future` publishers execute their provided closure right away (upon initialization) and then cache the returned value. That value is then forwarded for any future subscription.
-    </br>`Deferred...` closures await for subscriptions and a _greater-than-zero_ demand before executing. This also means, the closure will re-execute for any new subscriber.
--   `Deferred` is the most similar in functionality, but it only accepts a publisher.
+-   Combine's `Just` forwards a value immediately and each new subscriber always receive the same value.
+-   Combine's `Future` executes its closure right away (upon initialization) and then cache the returned value. That value is then forwarded for any future subscription.
+    </br>`Deferred...` publishers await for subscriptions and a _greater-than-zero_ demand before executing. This also means, the closure will re-execute for any new subscriber.
+-   Combine's `Deferred` has similar functionality to Conbini's, but it only accepts a publisher.
+    </br>This becomes annoying when compounding operators.
 
 </p></details>
 
@@ -291,35 +337,6 @@ upstream.subscribe(subscriber)
 Conbini provides convenience subscribers to ease code testing. These subscribers make the test wait till a specific expectation is fulfilled (or making the test fail in a negative case). Furthermore, if a timeout ellapses or a expectation is not fulfilled, the affected test line will be marked _in red_ correctly in Xcode.
 
 <ul>
-<details><summary><code>expectsCompletion(timeout:on:)</code></summary><p>
-
-It subscribes to a publisher making the running test wait for a successful completion while ignoring all emitted values.
-
-```swift
-publisherChain.expectsCompletion(timeout: 0.8, on: test)
-```
-
-</p></details>
-
-<details><summary><code>expectsFailure(timeout:on:)</code></summary><p>
-
-It subscribes to a publisher making the running test wait for a failed completion while ignoring all emitted values.
-
-```swift
-publisherChain.expectsFailure(timeout: 0.8, on: test)
-```
-
-</p></details>
-
-<details><summary><code>expectsOne(timeout:on:)</code></summary><p>
-
-It subscribes to a publisher making the running test wait for a single value and a successful completion. If more than one values are emitted or the publisher fails, the subscription gets cancelled and the test fails.
-
-```swift
-let emittedValue = publisherChain.expectsOne(timeout: 0.8, on: test)
-```
-
-</p></details>
 
 <details><summary><code>expectsAll(timeout:on:)</code></summary><p>
 
@@ -348,16 +365,37 @@ let emittedValues = publisherChain.expectsAtLeast(values: 5, timeout: 0.8, on: t
 ```
 
 </p></details>
+
+<details><summary><code>expectsCompletion(timeout:on:)</code></summary><p>
+
+It subscribes to a publisher making the running test wait for a successful completion while ignoring all emitted values.
+
+```swift
+publisherChain.expectsCompletion(timeout: 0.8, on: test)
+```
+
+</p></details>
+
+<details><summary><code>expectsFailure(timeout:on:)</code></summary><p>
+
+It subscribes to a publisher making the running test wait for a failed completion while ignoring all emitted values.
+
+```swift
+publisherChain.expectsFailure(timeout: 0.8, on: test)
+```
+
+</p></details>
+
+<details><summary><code>expectsOne(timeout:on:)</code></summary><p>
+
+It subscribes to a publisher making the running test wait for a single value and a successful completion. If more than one value are emitted or the publisher fails, the subscription gets cancelled and the test fails.
+
+```swift
+let emittedValue = publisherChain.expectsOne(timeout: 0.8, on: test)
+```
+
+</p></details>
 </ul>
-
-## Quirks
-
-The testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
-
--   `import Conbini` includes all code excepts the testing conveniences.
--   `import ConbiniForTesting` includes the testing functionality only.
-
-The rule of thumb is to use `import Conbini` in your regular code (e.g. within your framework or app) and write `import ConbiniForTesting` within your test target files.
 
 # References
 

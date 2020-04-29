@@ -29,11 +29,11 @@ public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
     }
 }
 
-extension DeferredPassthrough {
+fileprivate extension DeferredPassthrough {
     /// Internal Shadow subscription catching all messages from downstream and forwarding them upstream.
-    fileprivate final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<WaitConfiguration,ActiveConfiguration>
+        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
         init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {
@@ -87,16 +87,16 @@ extension DeferredPassthrough {
     }
 }
 
-extension DeferredPassthrough.Conduit {
+private extension DeferredPassthrough.Conduit {
     /// Values needed for the subscription awaiting state.
-    private struct WaitConfiguration {
+    struct _WaitConfiguration {
         let upstream: PassthroughSubject<Output,Failure>
         let downstream: Downstream
         let closure: DeferredPassthrough.Closure
     }
     
     /// Values needed for the subscription active state.
-    private struct ActiveConfiguration {
+    struct _ActiveConfiguration {
         typealias Setup = (subject: PassthroughSubject<Output,Failure>, closure: DeferredPassthrough.Closure)
         
         let upstream: Subscription

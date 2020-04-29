@@ -7,11 +7,11 @@ final class AsyncMapTests: XCTestCase {
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}
     /// A convenience storage of cancellables.
-    private var cancellables = Set<AnyCancellable>()
+    private var _cancellables = Set<AnyCancellable>()
     
     override func setUp() {
         self.continueAfterFailure = false
-        self.cancellables.removeAll()
+        self._cancellables.removeAll()
     }
 }
 
@@ -33,7 +33,7 @@ extension AsyncMapTests {
                 guard case .finished = $0 else { return XCTFail() }
                 exp.fulfill()
             }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received.count, 1)
@@ -58,7 +58,7 @@ extension AsyncMapTests {
                 guard case .finished = $0 else { return XCTFail() }
                 exp.fulfill()
             }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
 
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received.sorted(), [10, 20, 30, 40].sorted())
@@ -80,7 +80,7 @@ extension AsyncMapTests {
                 exp.fulfill()
             }, receiveValue: {
                 received.append($0)
-            }).store(in: &self.cancellables)
+            }).store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received, [10, 11, 12, 20, 21, 22, 30, 31, 32, 40, 41, 42])
@@ -99,7 +99,7 @@ extension AsyncMapTests {
                 guard case .finished = $0 else { return XCTFail() }
                 exp.fulfill()
             }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received, [10, 20, 30, 40])
@@ -118,7 +118,7 @@ extension AsyncMapTests {
             guard case .finished = $0 else { return XCTFail() }
             exp.fulfill()
         }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received.sorted(), [10, 20, 30, 40, 50, 60, 70, 80].sorted())
@@ -140,7 +140,7 @@ extension AsyncMapTests {
             exp.fulfill()
         }, receiveValue: {
             received.append($0)
-        }).store(in: &self.cancellables)
+        }).store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received, [10, 11, 12, 20, 21, 22, 30, 31, 32, 40, 41, 42])
@@ -161,7 +161,7 @@ extension AsyncMapTests {
                 guard case .finished = $0 else { return XCTFail() }
                 exp.fulfill()
             }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received.count, 1)
@@ -182,7 +182,7 @@ extension AsyncMapTests {
                 guard case .finished = $0 else { return XCTFail() }
                 exp.fulfill()
             }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received.sorted(), [10, 20, 30, 40].sorted())
@@ -204,7 +204,7 @@ extension AsyncMapTests {
             exp.fulfill()
         }, receiveValue: {
             received.append($0)
-        }).store(in: &self.cancellables)
+        }).store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received, [10, 11, 12, 20, 21, 22, 30, 31, 32, 40, 41, 42])
@@ -227,7 +227,7 @@ extension AsyncMapTests {
                 guard case .failure(let error) = $0, error is CustomError else { return XCTFail() }
                 exp.fulfill()
             }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertTrue(received.isEmpty)
@@ -248,7 +248,7 @@ extension AsyncMapTests {
             guard case .finished = $0 else { return XCTFail() }
             exp.fulfill()
         }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received, [10, 20, 30, 40])
@@ -269,7 +269,7 @@ extension AsyncMapTests {
             guard case .finished = $0 else { return XCTFail() }
             exp.fulfill()
         }, receiveValue: { received.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received.sorted(), [10, 20, 30, 40, 50, 60, 70, 80].sorted())
@@ -291,7 +291,7 @@ extension AsyncMapTests {
             exp.fulfill()
         }, receiveValue: {
             received.append($0)
-        }).store(in: &self.cancellables)
+        }).store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
         XCTAssertEqual(received, [10, 11, 12, 20, 21, 22, 30, 31, 32, 40, 41, 42])

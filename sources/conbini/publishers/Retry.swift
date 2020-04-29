@@ -41,13 +41,13 @@ extension Publishers {
     }
 }
 
-extension Publishers.DelayedRetry {
+fileprivate extension Publishers.DelayedRetry {
     /// Represents an active `DelayedRetry` publisher taking both the role of `Subscriber` (for upstream publishers) and `Subscription` (for downstream subscribers).
-    fileprivate final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<WaitConfiguration,ActiveConfiguration>
+        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
         
         init(upstream: Upstream, downstream: Downstream, scheduler: S, tolerance: S.SchedulerTimeType.Stride?, options: S.SchedulerOptions?, intervals: [TimeInterval]) {
             self.state = .awaitingSubscription(
@@ -135,7 +135,7 @@ extension Publishers.DelayedRetry {
                 return publisher.subscribe(self)
             }
 
-            let config = WaitConfiguration(config: activeConfig)
+            let config = _WaitConfiguration(config: activeConfig)
             let (scheduler, tolerance, options) = (config.scheduler, config.tolerance ?? config.scheduler.minimumTolerance, config.options)
             self._state.unlock()
             
@@ -157,9 +157,9 @@ extension Publishers.DelayedRetry {
     }
 }
 
-extension Publishers.DelayedRetry.Conduit {
+private extension Publishers.DelayedRetry.Conduit {
     /// The necessary variables during the *awaiting* stage.
-    private final class WaitConfiguration {
+    final class _WaitConfiguration {
         /// The publisher to be initialized in case of problems.
         let publisher: Upstream
         /// The subscriber further down the chain.
@@ -195,7 +195,7 @@ extension Publishers.DelayedRetry.Conduit {
             self.demand = demand
         }
         
-        convenience init(config: ActiveConfiguration) {
+        convenience init(config: _ActiveConfiguration) {
             self.init(publisher: config.publisher, downstream: config.downstream,
                       scheduler: config.scheduler, tolerance: config.tolerance, options: config.options,
                       intervals: config.intervals, next: config.next, demand: config.demand)
@@ -203,7 +203,7 @@ extension Publishers.DelayedRetry.Conduit {
     }
     
     /// The necessary variables during the *active* stage.
-    private final class ActiveConfiguration {
+    final class _ActiveConfiguration {
         /// The publisher to be initialized in case of problems.
         let publisher: Upstream
         /// The upstream subscription.
@@ -250,7 +250,7 @@ extension Publishers.DelayedRetry.Conduit {
             self.demand = demand
         }
         
-        convenience init(upstream: Subscription, config: WaitConfiguration) {
+        convenience init(upstream: Subscription, config: _WaitConfiguration) {
             self.init(publisher: config.publisher, upstream: upstream, downstream: config.downstream,
                       scheduler: config.scheduler, tolerance: config.tolerance, options: config.options,
                       intervals: config.intervals, next: config.next, demand: config.demand)

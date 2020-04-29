@@ -5,11 +5,11 @@ import Combine
 /// Tests the correct behavior of the `Complete` publisher.
 final class DeferredPassthroughTests: XCTestCase {
     /// A convenience storage of cancellables.
-    private var cancellables = Set<AnyCancellable>()
+    private var _cancellables = Set<AnyCancellable>()
     
     override func setUp() {
         self.continueAfterFailure = false
-        self.cancellables.removeAll()
+        self._cancellables.removeAll()
     }
     
     /// A custom error to send as a dummy.
@@ -31,7 +31,7 @@ extension DeferredPassthroughTests {
                 guard case .finished = $0 else { return XCTFail("The subject failed unexpectedly") }
                 exp.fulfill()
             }, receiveValue: { receivedValues.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.5)
         XCTAssertEqual(values, receivedValues)
@@ -51,7 +51,7 @@ extension DeferredPassthroughTests {
                 guard case .failure = $0 else { return XCTFail("The subject succeeeded unexpectedly") }
                 exp.fulfill()
             }, receiveValue: { receivedValues.append($0) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.5)
         XCTAssertEqual(values, receivedValues)

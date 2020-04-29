@@ -5,11 +5,11 @@ import Combine
 /// Tests the correct behavior of the `Complete` publisher.
 final class DeferredResultTests: XCTestCase {
     /// A convenience storage of cancellables.
-    private var cancellables = Set<AnyCancellable>()
+    private var _cancellables = Set<AnyCancellable>()
     
     override func setUp() {
         self.continueAfterFailure = false
-        self.cancellables.removeAll()
+        self._cancellables.removeAll()
     }
     
     /// A custom error to send as a dummy.
@@ -28,7 +28,7 @@ extension DeferredResultTests {
                 guard case .finished = $0 else { return XCTFail("The successful completion publisher has failed!") }
                 exp.fulfill()
             }, receiveValue: { XCTAssertEqual($0, value) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
     }
@@ -43,7 +43,7 @@ extension DeferredResultTests {
                 guard case .failure = $0 else { return XCTFail("The failed completion publisher has completed successfully!") }
                 exp.fulfill()
             }, receiveValue: { _ in XCTFail("The empty complete publisher has emitted a value!") })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
     }

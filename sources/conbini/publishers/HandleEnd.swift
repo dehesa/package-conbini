@@ -29,13 +29,13 @@ extension Publishers {
     }
 }
 
-extension Publishers.HandleEnd {
+fileprivate extension Publishers.HandleEnd {
     /// Represents an active `HandleEnd` publisher taking both the role of `Subscriber` (for upstream publishers) and `Subscription` (for downstream subscribers).
-    fileprivate final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         /// Enum listing all possible states.
-        @Lock private var state: State<WaitConfiguration,ActiveConfiguration>
+        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
             self.state = .awaitingSubscription(.init(closure: closure, downstream: downstream))
@@ -91,9 +91,9 @@ extension Publishers.HandleEnd {
     }
 }
 
-extension Publishers.HandleEnd.Conduit {
+private extension Publishers.HandleEnd.Conduit {
     /// The necessary variables during the *awaiting* stage.
-    private struct WaitConfiguration {
+    struct _WaitConfiguration {
         /// The closure being executed only once when the publisher completes or get cancelled.
         let closure: Publishers.HandleEnd<Upstream>.Closure
         /// The subscriber further down the chain.
@@ -101,7 +101,7 @@ extension Publishers.HandleEnd.Conduit {
     }
     
     /// The necessary variables during the *active* stage.
-    private struct ActiveConfiguration {
+    struct _ActiveConfiguration {
         /// The upstream subscription.
         let upstream: Subscription
         /// The closure being executed only once when the publisher completes or get cancelled.

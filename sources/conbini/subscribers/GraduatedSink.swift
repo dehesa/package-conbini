@@ -10,7 +10,7 @@ extension Subscribers {
         /// The closure executed when a completion event is received.
         public private(set) var receiveCompletion: ((Subscribers.Completion<Failure>)->Void)?
         /// The subscriber's state.
-        @Lock private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,_Configuration>
         
         /// Designated initializer specifying the maximum in-flight events.
         /// - precondition: `maxDemand` must be greater than zero.
@@ -57,9 +57,9 @@ extension Subscribers {
     }
 }
 
-extension Subscribers.GraduatedSink {
+private extension Subscribers.GraduatedSink {
     /// Variables required during the *active* stage.
-    private struct Configuration {
+    struct _Configuration {
         /// Upstream subscription.
         let upstream: Subscription
     }

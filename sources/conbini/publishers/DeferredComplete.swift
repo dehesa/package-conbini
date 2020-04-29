@@ -35,11 +35,11 @@ public struct DeferredComplete<Output,Failure>: Publisher where Failure:Swift.Er
     }
 }
 
-extension DeferredComplete {
+fileprivate extension DeferredComplete {
     /// The shadow subscription chain's origin.
-    fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,_Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
             self.state = .active(.init(downstream: downstream, closure: closure))
@@ -65,9 +65,9 @@ extension DeferredComplete {
     }
 }
 
-extension DeferredComplete.Conduit {
+private extension DeferredComplete.Conduit {
     /// Values needed for the subscription active state.
-    private struct Configuration {
+    struct _Configuration {
         let downstream: Downstream
         let closure: DeferredComplete.Closure
     }

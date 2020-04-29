@@ -29,11 +29,11 @@ public struct DeferredTryComplete<Output>: Publisher {
     }
 }
 
-extension DeferredTryComplete {
+fileprivate extension DeferredTryComplete {
     /// The shadow subscription chain's origin.
-    fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,_Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
             self.state = .active(.init(downstream: downstream, closure: closure))
@@ -61,9 +61,9 @@ extension DeferredTryComplete {
     }
 }
 
-extension DeferredTryComplete.Conduit {
+private extension DeferredTryComplete.Conduit {
     /// Values needed for the subscription active state.
-    private struct Configuration {
+    struct _Configuration {
         let downstream: Downstream
         let closure: DeferredTryComplete.Closure
     }

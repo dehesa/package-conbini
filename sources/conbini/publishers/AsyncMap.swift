@@ -51,14 +51,14 @@ extension Publishers {
     }
 }
 
-extension Publishers.AsyncMap {
+fileprivate extension Publishers.AsyncMap {
     /// Subscription representing an activated `AsyncMap` publisher.
-    fileprivate final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<WaitConfiguration,ActiveConfiguration>
+        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
         
         /// Creates a representation of an `AsyncMap` publisher.
         init(downstream: Downstream, parallel: Subscribers.Demand, closure: @escaping Closure) {
@@ -106,7 +106,7 @@ extension Publishers.AsyncMap {
             guard case (.some, let d) = config.calculateUpstreamDemand() else { fatalError("\nAn input was received, although the upstream already disappeared\n") }
             config.demand.requested += d
             let closure = config.closure
-            let (isCancelled, promise) = self.makeClosures()
+            let (isCancelled, promise) = self._makeClosures()
             self._state.unlock()
 
             closure(input, isCancelled, promise)
@@ -133,9 +133,9 @@ extension Publishers.AsyncMap {
     }
 }
 
-extension Publishers.AsyncMap.Conduit {
+private extension Publishers.AsyncMap.Conduit {
     /// - precondition: When this function is called `self` is within the lock and in an active state.
-    private func makeClosures() -> (check: Publishers.AsyncMap<Upstream,Output>.CancelCheck, promise: Publishers.AsyncMap<Upstream,Output>.Promise) {
+    func _makeClosures() -> (check: Publishers.AsyncMap<Upstream,Output>.CancelCheck, promise: Publishers.AsyncMap<Upstream,Output>.Promise) {
         typealias P = Publishers.AsyncMap<Upstream,Output>
         var isFinished = false
         
@@ -202,16 +202,16 @@ extension Publishers.AsyncMap.Conduit {
     }
 }
 
-extension Publishers.AsyncMap.Conduit {
+private extension Publishers.AsyncMap.Conduit {
     /// Values needed for the subscription awaiting state.
-    private struct WaitConfiguration {
+    struct _WaitConfiguration {
         let downstream: Downstream
         let parallel: Subscribers.Demand
         let closure: Publishers.AsyncMap<Upstream,Output>.Closure
     }
     
     /// Values needed for the subscription active state.
-    private final class ActiveConfiguration {
+    final class _ActiveConfiguration {
         /// The subscription used to manage the upstream back-pressure.
         var upstream: Subscription?
         /// The subscriber receiving the input and completion.

@@ -16,7 +16,7 @@ extension Subscribers {
         /// The closure executed when a completion event is received.
         public private(set) var receiveCompletion: ((Subscribers.Completion<Failure>)->Void)?
         /// The subscriber's state.
-        @Lock private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,_Configuration>
         
         /// Designated initializer specifying the number of expected values.
         /// - precondition: `demand` must be greater than zero.
@@ -83,9 +83,9 @@ extension Subscribers {
     }
 }
 
-extension Subscribers.FixedSink {
+private extension Subscribers.FixedSink {
     /// Variables required during the *active* stage.
-    private struct Configuration {
+    struct _Configuration {
         /// Upstream subscription.
         let upstream: Subscription
         /// The current amount of values received.

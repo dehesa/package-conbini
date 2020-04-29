@@ -24,11 +24,11 @@ public struct DeferredTryValue<Output>: Publisher {
     }
 }
 
-extension DeferredTryValue {
+fileprivate extension DeferredTryValue {
     /// The shadow subscription chain's origin.
-    fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,_Configuration>
         
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
@@ -61,9 +61,9 @@ extension DeferredTryValue {
     }
 }
 
-extension DeferredTryValue.Conduit {
+private extension DeferredTryValue.Conduit {
     /// Values needed for the subscription active state.
-    private struct Configuration {
+    struct _Configuration {
         let downstream: Downstream
         let closure: DeferredTryValue.Closure
     }

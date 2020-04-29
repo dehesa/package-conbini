@@ -38,14 +38,14 @@ extension Publishers {
 
 // MARK: -
 
-extension Publishers.Then {
+fileprivate extension Publishers.Then {
     /// Helper that acts as a `Subscriber` for the upstream, but just forward events to the given `Conduit` instance.
-    fileprivate final class UpstreamConduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
+    final class UpstreamConduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<WaitConfiguration,ActiveConfiguration>
+        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
         /// The combine identifier shared with the `DownstreamConduit`.
         let combineIdentifier: CombineIdentifier
         /// The maximum demand requested to the upstream at the same time.
@@ -99,17 +99,17 @@ extension Publishers.Then {
     }
 }
 
-extension Publishers.Then.UpstreamConduit {
+private extension Publishers.Then.UpstreamConduit {
     /// The necessary variables during the *awaiting* stage.
     ///
     /// The *Conduit* has been initialized, but it is not yet connected to the upstream.
-    private struct WaitConfiguration {
+    struct _WaitConfiguration {
         let downstream: Publishers.Then<Child,Upstream>.DownstreamConduit<Downstream>
     }
     /// The necessary variables during the *active* stage.
     ///
     /// The *Conduit* is receiving values from upstream.
-    private struct ActiveConfiguration {
+    struct _ActiveConfiguration {
         let upstream: Subscription
         let downstream: Publishers.Then<Child,Upstream>.DownstreamConduit<Downstream>
         var didDownstreamRequestValues: Bool
@@ -118,17 +118,17 @@ extension Publishers.Then.UpstreamConduit {
 
 // MARK: -
 
-extension Publishers.Then {
+fileprivate extension Publishers.Then {
     /// Represents an active `Then` publisher taking both the role of `Subscriber` (for upstream publishers) and `Subscription` (for downstream subscribers).
     ///
     /// This subscriber takes as inputs any value provided from upstream, but ignores them. Only when a successful completion has been received, a `Child` publisher will get generated.
     /// The child events will get emitted as-is (i.e. without any modification).
-    fileprivate final class DownstreamConduit<Downstream>: Subscription, Subscriber where Downstream: Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
+    final class DownstreamConduit<Downstream>: Subscription, Subscriber where Downstream: Subscriber, Downstream.Input==Child.Output, Downstream.Failure==Child.Failure {
         typealias Input = Downstream.Input
         typealias Failure = Downstream.Failure
         
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<WaitConfiguration,ActiveConfiguration>
+        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
         
         /// Designated initializer holding the downstream subscribers.
         /// - parameter downstream: The subscriber receiving values downstream.
@@ -230,11 +230,11 @@ extension Publishers.Then {
     }
 }
 
-extension Publishers.Then.DownstreamConduit {
+private extension Publishers.Then.DownstreamConduit {
     /// The necessary variables during the *awaiting* stage.
     ///
     /// The `Conduit` has been initialized, but it is not yet connected to the upstream.
-    private struct WaitConfiguration {
+    struct _WaitConfiguration {
         /// Closure generating the publisher which will take over once the publisher has completed (successfully).
         let closure: Publishers.Then<Child,Upstream>.Closure
         /// The subscriber further down the chain.
@@ -243,7 +243,7 @@ extension Publishers.Then.DownstreamConduit {
     /// The necessary variables during the *active* stage.
     ///
     /// The *Conduit* is receiving values from upstream or child publisher.
-    private struct ActiveConfiguration {
+    struct _ActiveConfiguration {
         /// The active stage
         var stage: Stage
         /// The subscriber further down the chain.

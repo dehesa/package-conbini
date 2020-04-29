@@ -5,11 +5,11 @@ import Combine
 /// Tests the correct behavior of the `DeferredComplete` publisher.
 final class DeferredFutureTests: XCTestCase {
     /// A convenience storage of cancellables.
-    private var cancellables = Set<AnyCancellable>()
+    private var _cancellables = Set<AnyCancellable>()
     
     override func setUp() {
         self.continueAfterFailure = false
-        self.cancellables.removeAll()
+        self._cancellables.removeAll()
     }
     
     /// A custom error to send as a dummy.
@@ -29,7 +29,7 @@ extension DeferredFutureTests {
                 guard case .finished = $0 else { return XCTFail("The successful completion publisher has failed!") }
                 exp.fulfill()
             }, receiveValue: { XCTAssertEqual($0, value) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
     }
@@ -46,7 +46,7 @@ extension DeferredFutureTests {
                 guard case .finished = $0 else { return XCTFail("The successful completion publisher has failed!") }
                 exp.fulfill()
             }, receiveValue: { XCTAssertEqual($0, value) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
     }
@@ -62,7 +62,7 @@ extension DeferredFutureTests {
                 guard case .failure = $0 else { return XCTFail("The failure deferred future publisher has succeeded!") }
                 exp.fulfill()
             }, receiveValue: { _ in XCTFail("No value was expected") })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
     }
@@ -78,7 +78,7 @@ extension DeferredFutureTests {
                 guard case .failure = $0 else { return XCTFail("The failure deferred future publisher has failed!") }
                 exp.fulfill()
             }, receiveValue: { _ in XCTFail("No value was expected") })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
         
         self.wait(for: [exp], timeout: 0.2)
     }

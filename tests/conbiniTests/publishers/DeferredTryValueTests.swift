@@ -5,11 +5,11 @@ import Combine
 /// Tests the correct behavior of the `DeferredTryValue` publisher.
 final class DeferredTryValueTests: XCTestCase {
     /// A convenience storage of cancellables.
-    private var cancellables = Set<AnyCancellable>()
+    private var _cancellables = Set<AnyCancellable>()
     
     override func setUp() {
         self.continueAfterFailure = false
-        self.cancellables.removeAll()
+        self._cancellables.removeAll()
     }
         
     /// A custom error to send as a dummy.
@@ -27,7 +27,7 @@ extension DeferredTryValueTests {
                 guard case .finished = $0 else { return XCTFail("The deffered value publisher has failed!") }
                 exp.fulfill()
             }, receiveValue: { XCTAssertEqual($0, value) })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
 
         self.wait(for: [exp], timeout: 0.2)
     }
@@ -41,7 +41,7 @@ extension DeferredTryValueTests {
                 guard case .failure = $0 else { return XCTFail("The deffered value publisher has completed successfully!") }
                 exp.fulfill()
             }, receiveValue: { _ in XCTFail("The deferred complete has emitted a value!") })
-            .store(in: &self.cancellables)
+            .store(in: &self._cancellables)
 
         self.wait(for: [exp], timeout: 0.2)
     }

@@ -25,11 +25,11 @@ public struct DeferredFuture<Output,Failure:Swift.Error>: Publisher {
     }
 }
 
-extension DeferredFuture {
+fileprivate extension DeferredFuture {
     /// The shadow subscription chain's origin.
-    fileprivate final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<Void,Configuration>
+        @Lock private var state: State<Void,_Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
             self.state = .active(.init(downstream: downstream, step: .awaitingDemand(closure: closure)))
@@ -73,9 +73,9 @@ extension DeferredFuture {
     }
 }
 
-extension DeferredFuture.Conduit {
+private extension DeferredFuture.Conduit {
     /// Values needed for the subscription active state.
-    private struct Configuration {
+    struct _Configuration {
         let downstream: Downstream
         var step: Step
         
