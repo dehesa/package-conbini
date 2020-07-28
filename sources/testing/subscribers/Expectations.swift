@@ -19,7 +19,7 @@ extension Publisher {
         let cancellable = self.sink(receiveCompletion: {
             switch $0 {
             case .finished: exp.fulfill()
-            case .failure(let e): XCTFail("The publisher completed with failure when successfull completion was expected.\n\(e)\n", file: file, line: line)
+            case .failure(let e): XCTFail("The publisher completed with failure when successfull completion was expected.\n\(e)\n", file: (file), line: line)
             }
         }, receiveValue: { _ in return })
         
@@ -43,7 +43,7 @@ extension Publisher {
         
         let cancellable = self.sink(receiveCompletion: {
             switch $0 {
-            case .finished: XCTFail("The publisher completed successfully when a failure was expected", file: file, line: line)
+            case .finished: XCTFail("The publisher completed successfully when a failure was expected", file: (file), line: line)
             case .failure(_): exp.fulfill()
             }
         }, receiveValue: { (_) in return })
@@ -73,10 +73,10 @@ extension Publisher {
             cancellable = nil
             switch $0 {
             case .failure(let e):
-                return XCTFail("The publisher completed with failure when successfull completion was expected\n\(e)\n", file: file, line: line)
+                return XCTFail("The publisher completed with failure when successfull completion was expected\n\(e)\n", file: (file), line: line)
             case .finished:
                 guard case .some = value else {
-                    return XCTFail("The publisher completed without outputting any value", file: file, line: line)
+                    return XCTFail("The publisher completed without outputting any value", file: (file), line: line)
                 }
                 exp.fulfill()
             }
@@ -84,7 +84,7 @@ extension Publisher {
             guard case .none = value else {
                 cancellable?.cancel()
                 cancellable = nil
-                return XCTFail("The publisher produced more than one value when only one was expected", file: file, line: line)
+                return XCTFail("The publisher produced more than one value when only one was expected", file: (file), line: line)
             }
             value = $0
         })
@@ -94,7 +94,7 @@ extension Publisher {
         cancellable?.cancel()
         
         guard let result = value else {
-            XCTFail("The publisher didn't produce any value before the timeout ellapsed", file: file, line: line)
+            XCTFail("The publisher didn't produce any value before the timeout ellapsed", file: (file), line: line)
             fatalError(file: file, line: line)
         }
         return result
@@ -122,7 +122,7 @@ extension Publisher {
             case .finished:
                 exp.fulfill()
             case .failure(let e):
-                XCTFail("The publisher completed with failure when successfull completion was expected\n\(e)\n", file: file, line: line)
+                XCTFail("The publisher completed with failure when successfull completion was expected\n\(e)\n", file: (file), line: line)
                 fatalError()
             }
         }, receiveValue: { result.append($0) })
@@ -156,7 +156,7 @@ extension Publisher {
             cancellable = nil
             switch $0 {
             case .finished: if result.count == values { return exp.fulfill() }
-            case .failure(let e): XCTFail(String(describing: e), file: file, line: line)
+            case .failure(let e): XCTFail(String(describing: e), file: (file), line: line)
             }
         }, receiveValue: { (output) in
             guard result.count < values else { return }

@@ -45,8 +45,6 @@ The testing conveniences depend on [XCTest](https://developer.apple.com/document
 -   `import Conbini` includes all code excepts the testing conveniences.
 -   `import ConbiniForTesting` includes the testing functionality only.
 
-The rule of thumb is to use `import Conbini` in your regular code (e.g. within your framework or app) and write `import ConbiniForTesting` within your test target files.
-
 </p></details>
 </ul>
 
