@@ -24,7 +24,7 @@ import PackageDescription
 let package = Package(
     /* Your package name, supported platforms, and generated products go here */
     dependencies: [
-        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.5.1")
+        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.6.0")
     ],
     targets: [
         .target(name: /* Your target name here */, dependencies: ["Conbini"])
@@ -96,25 +96,6 @@ let publisher = setConfigurationOnServer.then {
 ```
 
 This operator optionally lets you control backpressure with its `maxDemand` parameter. The parameter behaves like `flatMap`'s `maxPublishers`, which specifies the maximum demand requested to the upstream at any given time.
-
-</p></details>
-
-<details><summary><code>asyncMap(_:)</code></summary><p>
-
-It transforms elements received from upstream (similar to `map`), but the result is returned from a promise instead of using the `return` statement. Furthermore, promises can be called multipled times effectively transforming one upstream value into many outputs.
-
-```swift
-let publisher = [1, 10, 100].publisher.asyncMap { (value, isCancelled, promise) in
-    queue.asyncAfter(deadline: ....) {
-        guard isCancelled else { return }
-        promise(newValue1, .continue)
-        promise(newValue2, .continue)
-        promise(newValue3, .finished)
-    }
-}
-```
-
-This operator also provides a `try` variant accepting a result (instead of a value).
 
 </p></details>
 </ul>
@@ -399,8 +380,6 @@ let emittedValue = publisherChain.expectsOne(timeout: 0.8, on: test)
 
 -   Apple's [Combine documentation](https://developer.apple.com/documentation/combine).
 -   [The Combine book](https://store.raywenderlich.com/products/combine-asynchronous-programming-with-swift) is an excellent Ray Wenderlich book about the Combine framework.
--   [Cocoa with love](https://www.cocoawithlove.com) has a great series of articles about the inner workings of Combine: [1. Protocols](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-1.html), [2. Sharing](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-2.html), [3. Asynchrony](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-3.html).
+-   [Cocoa with love](https://www.cocoawithlove.com) has a great series of articles about the inner workings of Combine: [1](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-1.html), [2](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-2.html), [3](https://www.cocoawithlove.com/blog/twenty-two-short-tests-of-combine-part-3.html).
 -   [OpenCombine](https://github.com/broadwaylamb/OpenCombine) is an open source implementation of Apple's Combine framework.
 -   [CombineX](https://github.com/cx-org/CombineX) is an open source implementation of Apple's Combine framework.
-
-> This framework name references both the `Combine` framework and the helpful Japanese convenience stores 😄
