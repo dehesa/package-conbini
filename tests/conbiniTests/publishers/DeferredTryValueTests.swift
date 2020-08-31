@@ -11,6 +11,10 @@ final class DeferredTryValueTests: XCTestCase {
         self.continueAfterFailure = false
         self._cancellables.removeAll()
     }
+    
+    override func tearDown() {
+        self._cancellables.removeAll()
+    }
         
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}

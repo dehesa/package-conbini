@@ -1,17 +1,17 @@
 import Combine
 
-/// A publisher that never emits any values and just completes successfully or with a failure (depending on whether an error was returned in the closure).
+/// A publisher that never emits any values and just completes. The completion might be  successful or with a failure (depending on whether an error was returned in the closure).
 ///
-/// This publisher is used at the origin of a publisher chain and it only provides the value when it receives a request with a demand greater than zero.
+/// This publisher only executes the stored closure when it receives a request with a demand greater than zero. Right after closure execution, the closure is removed and cleaned up.
 public struct DeferredComplete<Output,Failure>: Publisher where Failure:Swift.Error {
     /// The closure type being store for delayed execution.
     public typealias Closure = () -> Failure?
     
     /// Deferred closure.
-    /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
     public let closure: Closure
     
-    /// Creates a publisher that send a successful completion once it receives a positive request (i.e. a request greater than zero)
+    /// Creates a publisher that forwards a successful completion once it receives a positive request (i.e. a request greater than zero)
     public init() {
         self.closure = { nil }
     }
@@ -19,6 +19,7 @@ public struct DeferredComplete<Output,Failure>: Publisher where Failure:Swift.Er
     /// Creates a publisher that completes successfully or fails depending on the result of the given closure.
     /// - parameter output: The output type of this *empty* publisher. It is given here as convenience, since it may help compiler inferral.
     /// - parameter closure: The closure which produces an empty successful completion (if it returns `nil`) or a failure (if it returns an error).
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
     @inlinable public init(output: Output.Type = Output.self, closure: @escaping Closure) {
         self.closure = closure
     }
@@ -42,7 +43,7 @@ fileprivate extension DeferredComplete {
         @Lock private var state: State<Void,_Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self.state = .active(.init(downstream: downstream, closure: closure))
+            self.state = .active(_Configuration(downstream: downstream, closure: closure))
         }
         
         deinit {
@@ -66,9 +67,11 @@ fileprivate extension DeferredComplete {
 }
 
 private extension DeferredComplete.Conduit {
-    /// Values needed for the subscription active state.
+    /// Values needed for the subscription's active state.
     struct _Configuration {
+        /// The downstream subscriber awaiting any value and/or completion events.
         let downstream: Downstream
+        /// The closure generating the succesful/failure completion.
         let closure: DeferredComplete.Closure
     }
 }

@@ -1,20 +1,21 @@
 import Combine
 
-/// A publisher that eventually produces a single value and then finishes or fails.
+/// A publisher that may produce a value before completing (whether successfully or with a failure).
 ///
-/// This publisher is used at the origin of a publisher chain and it only executes the closure when it receives a request with a demand greater than zero.
+/// This publisher only executes the stored closure when it receives a request with a demand greater than zero. Right after the closure execution, the closure is removed and clean up.
 public struct DeferredFuture<Output,Failure:Swift.Error>: Publisher {
     /// The promise returning the value (or failure) of the whole publisher.
     public typealias Promise = (Result<Output,Failure>) -> Void
     /// The closure type being store for delayed execution.
     public typealias Closure = (_ promise: @escaping Promise) -> Void
+    
     /// Deferred closure.
-    /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
     public let closure: Closure
     
     /// Creates a publisher that send a value and completes successfully or just fails depending on the result of the given closure.
-    /// - parameter closure: Closure in charge of generating the value to be emitted.
-    /// - attention: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
+    /// - parameter attempToFulfill: Closure in charge of generating the value to be emitted.
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted). 
     @inlinable public init(_ attempToFulfill: @escaping Closure) {
         self.closure = attempToFulfill
     }
@@ -32,7 +33,7 @@ fileprivate extension DeferredFuture {
         @Lock private var state: State<Void,_Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self.state = .active(.init(downstream: downstream, step: .awaitingDemand(closure: closure)))
+            self.state = .active(_Configuration(downstream: downstream, step: .awaitingExecution(closure)))
         }
         
         deinit {
@@ -43,19 +44,17 @@ fileprivate extension DeferredFuture {
             guard demand > 0 else { return }
             
             self._state.lock()
-            guard var config = self.state.activeConfiguration,
-                  case .awaitingDemand(let closure) = config.step else { return self._state.unlock() }
-            config.step = .awaitingResult
-            self.state = .active(config)
+            guard var config = self.$state.activeConfiguration,
+                  case .awaitingExecution(let closure) = config.step else { return self._state.unlock() }
+            config.step = .awaitingPromise
+            self.$state = .active(config)
             self._state.unlock()
             
             closure { [weak self] (result) in
                 guard let self = self else { return }
                 
-                self._state.lock()
-                guard let config = self.state.activeConfiguration else { return self._state.unlock() }
-                self.state = .terminated
-                self._state.unlock()
+                guard case .active(let config) = self._state.terminate() else { return }
+                guard case .awaitingPromise = config.step else { fatalError() }
                 
                 switch result {
                 case .success(let value):
@@ -74,14 +73,18 @@ fileprivate extension DeferredFuture {
 }
 
 private extension DeferredFuture.Conduit {
-    /// Values needed for the subscription active state.
+    /// Values needed for the subscription's active state.
     struct _Configuration {
+        /// The downstream subscriber awaiting any value and/or completion events.
         let downstream: Downstream
+        /// The state on the promise execution
         var step: Step
         
         enum Step {
-            case awaitingDemand(closure: DeferredFuture<Output,Failure>.Closure)
-            case awaitingResult
+            /// The closure hasn't been executed.
+            case awaitingExecution(_ closure: DeferredFuture<Output,Failure>.Closure)
+            /// The closure has been executed, but no promise has been received yet.
+            case awaitingPromise
         }
     }
 }

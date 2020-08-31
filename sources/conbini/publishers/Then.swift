@@ -75,9 +75,9 @@ fileprivate extension Publishers.Then {
             guard demand > 0 else { return }
             
             self._state.lock()
-            guard var config = self.state.activeConfiguration, !config.didDownstreamRequestValues else { return self._state.unlock() }
+            guard var config = self.$state.activeConfiguration, !config.didDownstreamRequestValues else { return self._state.unlock() }
             config.didDownstreamRequestValues = true
-            self.state = .active(config)
+            self.$state = .active(config)
             self._state.unlock()
             
             config.upstream.request(self._maxDemand)
@@ -147,15 +147,15 @@ fileprivate extension Publishers.Then {
             // - The pipeline has just started and an acknowledgment is being waited from the upstream.
             // - The upstream has completed successfully and a child has been instantiated. The acknowledgement is being waited upon.
             self._state.lock()
-            switch self.state {
+            switch self.$state {
             case .awaitingSubscription(let config):
-                self.state = .active(.init(stage: .upstream(subscription: subscription, closure: config.closure, storedRequests: .none), downstream: config.downstream))
+                self.$state = .active(.init(stage: .upstream(subscription: subscription, closure: config.closure, storedRequests: .none), downstream: config.downstream))
                 self._state.unlock()
                 config.downstream.receive(subscription: self)
             case .active(var config):
                 guard case .awaitingChild(let storedRequests) = config.stage else { fatalError() }
                 config.stage = .child(subscription: subscription)
-                self.state = .active(config)
+                self.$state = .active(config)
                 self._state.unlock()
                 subscription.request(storedRequests)
             case .terminated:
@@ -167,17 +167,17 @@ fileprivate extension Publishers.Then {
             guard demand > 0 else { return }
             
             self._state.lock()
-            guard var config = self.state.activeConfiguration else { return self._state.unlock() }
+            guard var config = self.$state.activeConfiguration else { return self._state.unlock() }
             
             switch config.stage {
             case .upstream(let subscription, let closure, let requests):
                 config.stage = .upstream(subscription: subscription, closure: closure, storedRequests: requests + demand)
-                self.state = .active(config)
+                self.$state = .active(config)
                 self._state.unlock()
                 if requests == .none { subscription.request(.max(1)) }
             case .awaitingChild(let requests):
                 config.stage = .awaitingChild(storedRequests: requests + demand)
-                self.state = .active(config)
+                self.$state = .active(config)
                 self._state.unlock()
             case .child(let subscription):
                 self._state.unlock()
@@ -187,7 +187,7 @@ fileprivate extension Publishers.Then {
         
         func receive(_ input: Downstream.Input) -> Subscribers.Demand {
             self._state.lock()
-            guard let config = self.state.activeConfiguration else { self._state.unlock(); return .unlimited }
+            guard let config = self.$state.activeConfiguration else { self._state.unlock(); return .unlimited }
             guard case .child = config.stage else { fatalError() }
             self._state.unlock()
             return config.downstream.receive(input)
@@ -195,25 +195,25 @@ fileprivate extension Publishers.Then {
         
         func receive(completion: Subscribers.Completion<Downstream.Failure>) {
             self._state.lock()
-            guard var config = self.state.activeConfiguration else { return self._state.unlock() }
+            guard var config = self.$state.activeConfiguration else { return self._state.unlock() }
             
             switch config.stage {
             case .upstream(_, let closure, let requests):
                 switch completion {
                 case .finished:
                     config.stage = .awaitingChild(storedRequests: requests)
-                    self.state = .active(config)
+                    self.$state = .active(config)
                     self._state.unlock()
                     closure().subscribe(self)
                 case .failure:
-                    self.state = .terminated
+                    self.$state = .terminated
                     self._state.unlock()
                     config.downstream.receive(completion: completion)
                 }
             case .awaitingChild:
                 fatalError()
             case .child:
-                self.state = .terminated
+                self.$state = .terminated
                 self._state.unlock()
                 config.downstream.receive(completion: completion)
             }

@@ -55,14 +55,14 @@ fileprivate extension Publishers.HandleEnd {
         
         func request(_ demand: Subscribers.Demand) {
             self._state.lock()
-            guard let config = self.state.activeConfiguration else { return self._state.unlock() }
+            guard let config = self.$state.activeConfiguration else { return self._state.unlock() }
             self._state.unlock()
             config.upstream.request(demand)
         }
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             self._state.lock()
-            guard let config = self.state.activeConfiguration else { self._state.unlock(); return .unlimited }
+            guard let config = self.$state.activeConfiguration else { self._state.unlock(); return .unlimited }
             self._state.unlock()
             
             return config.downstream.receive(input)

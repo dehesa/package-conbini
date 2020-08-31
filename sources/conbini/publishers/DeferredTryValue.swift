@@ -8,12 +8,12 @@ public struct DeferredTryValue<Output>: Publisher {
     /// The closure type being store for delayed execution.
     public typealias Closure = () throws -> Output
     /// Deferred closure.
-    /// - attention: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
     public let closure: Closure
     
     /// Creates a publisher which will a value and completes successfully, or just fail depending on the result of the given closure.
     /// - parameter closure: Closure in charge of generating the value to be emitted.
-    /// - attention: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
     @inlinable public init(closure: @escaping Closure) {
         self.closure = closure
     }
@@ -34,7 +34,7 @@ fileprivate extension DeferredTryValue {
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.
         /// - parameter closure: Closure in charge of generating the emitted value.
         init(downstream: Downstream, closure: @escaping Closure) {
-            self.state = .active(.init(downstream: downstream, closure: closure))
+            self.state = .active(_Configuration(downstream: downstream, closure: closure))
         }
         
         deinit {
@@ -62,9 +62,11 @@ fileprivate extension DeferredTryValue {
 }
 
 private extension DeferredTryValue.Conduit {
-    /// Values needed for the subscription active state.
+    /// Values needed for the subscription's active state.
     struct _Configuration {
+        /// The downstream subscriber awaiting any value and/or completion events.
         let downstream: Downstream
+        /// The closure generating the optional value and successful/failure completion.
         let closure: DeferredTryValue.Closure
     }
 }

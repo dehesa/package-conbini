@@ -7,7 +7,7 @@ import Combine
 /// - The `Passthrough` subject passed on the closure is already *chained* and can start forwarding values right away.
 /// - The given closure will receive the `Passthrough` at the origin of the chain so it can be used to send information downstream.
 /// - The closure will get *cleaned up* as soon as it returns.
-/// - remark: Please notice, the pipeline won't complete if the subject within the closure doesn't send `.send(completion:)`.
+/// - remark: Please notice, the pipeline won't complete if the subject within the closure doesn't forwards `.send(completion:)`.
 public struct DeferredPassthrough<Output,Failure:Swift.Error>: Publisher {
     /// The closure type being store for delayed execution.
     public typealias Closure = (PassthroughSubject<Output,Failure>) -> Void
@@ -56,8 +56,8 @@ fileprivate extension DeferredPassthrough {
             guard demand > 0 else { return }
             
             self._state.lock()
-            guard let config = self.state.activeConfiguration else { return self._state.unlock() }
-            self.state = .active(.init(upstream: config.upstream, downstream: config.downstream, setup: nil))
+            guard let config = self.$state.activeConfiguration else { return self._state.unlock() }
+            self.$state = .active(.init(upstream: config.upstream, downstream: config.downstream, setup: nil))
             self._state.unlock()
             
             config.upstream.request(demand)
@@ -67,7 +67,7 @@ fileprivate extension DeferredPassthrough {
         
         func receive(_ input: Output) -> Subscribers.Demand {
             self._state.lock()
-            guard let config = self.state.activeConfiguration else {
+            guard let config = self.$state.activeConfiguration else {
                 self._state.unlock()
                 return .none
             }

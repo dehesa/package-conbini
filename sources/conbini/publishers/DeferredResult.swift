@@ -7,12 +7,12 @@ public struct DeferredResult<Output,Failure:Swift.Error>: Publisher {
     /// The closure type being store for delayed execution.
     public typealias Closure = () -> Result<Output,Failure>
     /// Deferred closure.
-    /// - note: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted). 
     public let closure: Closure
     
     /// Creates a publisher that send a value and completes successfully or just fails depending on the result of the given closure.
     /// - parameter closure: Closure in charge of generating the value to be emitted.
-    /// - attention: The closure is kept in the publisher, thus if you keep the publisher around any reference in the closure will be kept too.
+    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
     @inlinable public init(closure: @escaping Closure) {
         self.closure = closure
     }
@@ -30,7 +30,7 @@ fileprivate extension DeferredResult {
         @Lock private var state: State<Void,_Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
-            self.state = .active(.init(downstream: downstream, closure: closure))
+            self.state = .active(_Configuration(downstream: downstream, closure: closure))
         }
         
         deinit {
@@ -56,9 +56,11 @@ fileprivate extension DeferredResult {
 }
 
 private extension DeferredResult.Conduit {
-    /// Values needed for the subscription active state.
+    /// Values needed for the subscription's active state.
     struct _Configuration {
+        /// The downstream subscriber awaiting any value and/or completion events.
         let downstream: Downstream
+        /// The closure generating the successful/failure completion.
         let closure: DeferredResult.Closure
     }
 }

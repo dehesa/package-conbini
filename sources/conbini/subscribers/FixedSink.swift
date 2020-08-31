@@ -45,18 +45,18 @@ extension Subscribers {
         
         public func receive(_ input: Input) -> Subscribers.Demand {
             self._state.lock()
-            guard var config = self.state.activeConfiguration else {
+            guard var config = self.$state.activeConfiguration else {
                 self._state.unlock()
                 return .none
             }
             config.receivedValues += 1
             
             if config.receivedValues < self.demand {
-                self.state = .active(config)
+                self.$state = .active(config)
                 self._state.unlock()
                 self.receiveValue?(input)
             } else {
-                self.state = .terminated
+                self.$state = .terminated
                 self._state.unlock()
                 self.receiveValue?(input)
                 self.receiveValue = nil

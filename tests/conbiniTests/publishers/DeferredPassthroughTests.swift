@@ -12,6 +12,10 @@ final class DeferredPassthroughTests: XCTestCase {
         self._cancellables.removeAll()
     }
     
+    override func tearDown() {
+        self._cancellables.removeAll()
+    }
+    
     /// A custom error to send as a dummy.
     private struct CustomError: Swift.Error {}
 }
