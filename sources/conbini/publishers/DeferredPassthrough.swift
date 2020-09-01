@@ -37,7 +37,7 @@ fileprivate extension DeferredPassthrough {
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
         init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {
-            self.state = .awaitingSubscription(.init(upstream: upstream, downstream: downstream, closure: closure))
+            self.state = .awaitingSubscription(_WaitConfiguration(upstream: upstream, downstream: downstream, closure: closure))
         }
         
         deinit {
@@ -46,7 +46,7 @@ fileprivate extension DeferredPassthrough {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(atomic: { .init(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure)) }) else {
+            guard let config = self._state.activate(atomic: { _ActiveConfiguration(upstream: subscription, downstream: $0.downstream, setup: ($0.upstream, $0.closure)) }) else {
                 return subscription.cancel()
             }
             config.downstream.receive(subscription: self)
@@ -88,14 +88,14 @@ fileprivate extension DeferredPassthrough {
 }
 
 private extension DeferredPassthrough.Conduit {
-    /// Values needed for the subscription awaiting state.
+    /// Values needed for the subscription's awaiting state.
     struct _WaitConfiguration {
         let upstream: PassthroughSubject<Output,Failure>
         let downstream: Downstream
         let closure: DeferredPassthrough.Closure
     }
     
-    /// Values needed for the subscription active state.
+    /// Values needed for the subscription's active state.
     struct _ActiveConfiguration {
         typealias Setup = (subject: PassthroughSubject<Output,Failure>, closure: DeferredPassthrough.Closure)
         

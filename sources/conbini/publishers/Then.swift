@@ -54,9 +54,9 @@ fileprivate extension Publishers.Then {
         /// Designated initializer for this helper establishing the strong bond between the `Conduit` and the created helper.
         init(subscriber: DownstreamConduit<Downstream>, maxDemand: Subscribers.Demand) {
             precondition(maxDemand > .none)
-            self.state = .awaitingSubscription(.init(downstream: subscriber))
-            self._maxDemand = maxDemand
+            self.state = .awaitingSubscription(_WaitConfiguration(downstream: subscriber))
             self.combineIdentifier = subscriber.combineIdentifier
+            self._maxDemand = maxDemand
         }
         
         deinit {
@@ -65,7 +65,7 @@ fileprivate extension Publishers.Then {
         }
         
         func receive(subscription: Subscription) {
-            guard let config = self._state.activate(atomic: { .init(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else {
+            guard let config = self._state.activate(atomic: { _ActiveConfiguration(upstream: subscription, downstream: $0.downstream, didDownstreamRequestValues: false) }) else {
                 return subscription.cancel()
             }
             config.downstream.receive(subscription: self)
@@ -134,7 +134,7 @@ fileprivate extension Publishers.Then {
         /// - parameter downstream: The subscriber receiving values downstream.
         /// - parameter transform: The closure that will eventually generate another publisher to switch to.
         init(downstream: Downstream, transform: @escaping Closure) {
-            self.state = .awaitingSubscription(.init(closure: transform, downstream: downstream))
+            self.state = .awaitingSubscription(_WaitConfiguration(closure: transform, downstream: downstream))
         }
         
         deinit {
@@ -143,13 +143,13 @@ fileprivate extension Publishers.Then {
         }
         
         func receive(subscription: Subscription) {
-            // A subscription can be received in two cases:
-            // - The pipeline has just started and an acknowledgment is being waited from the upstream.
-            // - The upstream has completed successfully and a child has been instantiated. The acknowledgement is being waited upon.
+            // A subscription can be received in the following two cases:
+            //  a) The pipeline has just started and an acknowledgment is being waited from the upstream.
+            //  b) The upstream has completed successfully and a child has been instantiated. The acknowledgement is being waited upon.
             self._state.lock()
             switch self.$state {
             case .awaitingSubscription(let config):
-                self.$state = .active(.init(stage: .upstream(subscription: subscription, closure: config.closure, storedRequests: .none), downstream: config.downstream))
+                self.$state = .active(_ActiveConfiguration(stage: .upstream(subscription: subscription, closure: config.closure, storedRequests: .none), downstream: config.downstream))
                 self._state.unlock()
                 config.downstream.receive(subscription: self)
             case .active(var config):
@@ -251,7 +251,7 @@ private extension Publishers.Then.DownstreamConduit {
         
         /// Once the pipeline is activated, there are two main stages: upsatream connection, and child publishing.
         enum Stage {
-            /// Values are being received from downstream, but the child publisher hasn't been activated (switched to) yet.
+            /// Values are being received from upstream, but the child publisher hasn't been activated (switched to) yet.
             case upstream(subscription: Subscription, closure: ()->Child, storedRequests: Subscribers.Demand)
             /// Upstream has completed successfully and the child publisher has been instantiated and it is being waited for subscription acknowledgement.
             case awaitingChild(storedRequests: Subscribers.Demand)

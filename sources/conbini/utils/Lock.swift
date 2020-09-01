@@ -52,6 +52,7 @@ extension Lock {
     }
     
     @_transparent func deinitialize() {
+        self._lock.deinitialize(count: 1)
         self._lock.deallocate()
     }
 }
