@@ -4,39 +4,30 @@ import Darwin
 ///
 /// - attention: Always make sure to deinitialize the lock.
 @propertyWrapper internal struct Lock<WaitConfiguration,ActiveConfiguration> {
-    /// The type of the value being guarded by the lock.
-    typealias Content = State<WaitConfiguration,ActiveConfiguration>
-    
     /// Performant non-reentrant unfair lock.
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
     /// Generic variable being guarded by the lock.
-    private var _content: Content
+    var value: Value
     
-    init(wrappedValue: Content) {
+    init(wrappedValue: Value) {
         self._lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
         self._lock.initialize(to: os_unfair_lock())
-        self._content = wrappedValue
+        self.value = wrappedValue
     }
     
     /// Provide thread-safe storage access (within the lock).
-    var wrappedValue: Content {
+    var wrappedValue: Value {
         get {
             self.lock()
-            let content = self._content
+            let content = self.value
             self.unlock()
             return content
         }
         set {
             self.lock()
-            self._content = newValue
+            self.value = newValue
             self.unlock()
         }
-    }
-    
-    /// Provides unsafe storage access.
-    @_transparent var projectedValue: Content {
-        get { self._content }
-        set { self._content = newValue }
     }
 }
 
@@ -58,6 +49,9 @@ extension Lock {
 }
 
 extension Lock {
+    /// The type of the value being guarded by the lock.
+    typealias Value = State<WaitConfiguration,ActiveConfiguration>
+
     /// Switches the state from `.awaitingSubscription` to `.active` by providing the active configuration parameters.
     /// - If the state is already in `.active`, this function crashes.
     /// - If the state is `.terminated`, no work is performed.
@@ -67,10 +61,10 @@ extension Lock {
         let result: ActiveConfiguration?
         
         self.lock()
-        switch self._content {
+        switch self.value {
         case .awaitingSubscription(let awaitingConfiguration):
             result = atomic(awaitingConfiguration)
-            self._content = .active(result.unsafelyUnwrapped)
+            self.value = .active(result.unsafelyUnwrapped)
         case .terminated: result = nil
         case .active: fatalError()
         }
@@ -80,10 +74,10 @@ extension Lock {
     }
     
     /// Nullify the state and returns the previous state value.
-    @discardableResult mutating func terminate() -> Content {
+    @discardableResult mutating func terminate() -> Value {
         self.lock()
-        let result = self._content
-        self._content = .terminated
+        let result = self.value
+        self.value = .terminated
         self.unlock()
         return result
     }

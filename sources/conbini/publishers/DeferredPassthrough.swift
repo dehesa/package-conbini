@@ -56,8 +56,8 @@ fileprivate extension DeferredPassthrough {
             guard demand > 0 else { return }
             
             self._state.lock()
-            guard let config = self.$state.activeConfiguration else { return self._state.unlock() }
-            self.$state = .active(.init(upstream: config.upstream, downstream: config.downstream, setup: nil))
+            guard let config = self._state.value.activeConfiguration else { return self._state.unlock() }
+            self._state.value = .active(.init(upstream: config.upstream, downstream: config.downstream, setup: nil))
             self._state.unlock()
             
             config.upstream.request(demand)
@@ -67,7 +67,7 @@ fileprivate extension DeferredPassthrough {
         
         func receive(_ input: Output) -> Subscribers.Demand {
             self._state.lock()
-            guard let config = self.$state.activeConfiguration else {
+            guard let config = self._state.value.activeConfiguration else {
                 self._state.unlock()
                 return .none
             }

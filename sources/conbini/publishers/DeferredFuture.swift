@@ -44,10 +44,10 @@ fileprivate extension DeferredFuture {
             guard demand > 0 else { return }
             
             self._state.lock()
-            guard var config = self.$state.activeConfiguration,
+            guard var config = self._state.value.activeConfiguration,
                   case .awaitingExecution(let closure) = config.step else { return self._state.unlock() }
             config.step = .awaitingPromise
-            self.$state = .active(config)
+            self._state.value = .active(config)
             self._state.unlock()
             
             closure { [weak self] (result) in

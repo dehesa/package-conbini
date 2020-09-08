@@ -3,7 +3,7 @@ import Combine
 extension Subscribers {
     /// A  subscriber that requests the given number of values upon subscription and then don't request any further.
     ///
-    /// For example, if the subscriber is initialized with a demand of 5, this subscriber will received 0 to 5 values.
+    /// For example, if the subscriber is initialized with a demand of 5, this subscriber will received 0 to 5 values, but no more.
     /// ```swift
     /// let subscriber = FixedSink<Int,Never>(demand: .max(5), receiveValue: { print($0) })
     /// ```
@@ -45,18 +45,18 @@ extension Subscribers {
         
         public func receive(_ input: Input) -> Subscribers.Demand {
             self._state.lock()
-            guard var config = self.$state.activeConfiguration else {
+            guard var config = self._state.value.activeConfiguration else {
                 self._state.unlock()
                 return .none
             }
             config.receivedValues += 1
             
             if config.receivedValues < self.demand {
-                self.$state = .active(config)
+                self._state.value = .active(config)
                 self._state.unlock()
                 self.receiveValue?(input)
             } else {
-                self.$state = .terminated
+                self._state.value = .terminated
                 self._state.unlock()
                 self.receiveValue?(input)
                 self.receiveValue = nil

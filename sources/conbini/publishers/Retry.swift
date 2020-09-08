@@ -77,7 +77,7 @@ fileprivate extension Publishers.DelayedRetry {
             guard demand > 0 else { return }
             self._state.lock()
             
-            switch self.$state {
+            switch self._state.value {
             case .awaitingSubscription(let config):
                 guard !config.isPrime else { fatalError("A request cannot happen before a subscription has been performed") }
                 config.demand += demand
@@ -93,7 +93,7 @@ fileprivate extension Publishers.DelayedRetry {
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             self._state.lock()
-            guard let config1 = self.$state.activeConfiguration else {
+            guard let config1 = self._state.value.activeConfiguration else {
                 self._state.unlock()
                 return .none
             }
@@ -104,7 +104,7 @@ fileprivate extension Publishers.DelayedRetry {
             
             let demand = downstream.receive(input)
             self._state.lock()
-            guard let config2 = self.$state.activeConfiguration else {
+            guard let config2 = self._state.value.activeConfiguration else {
                 self._state.unlock()
                 return .none
             }
@@ -116,18 +116,18 @@ fileprivate extension Publishers.DelayedRetry {
         
         func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             self._state.lock()
-            guard let activeConfig = self.$state.activeConfiguration else {
+            guard let activeConfig = self._state.value.activeConfiguration else {
                 return self._state.unlock()
             }
             
             guard case .failure = completion, let pause = activeConfig.nextPause else {
                 let downstream = activeConfig.downstream
-                self.$state = .terminated
+                self._state.value = .terminated
                 self._state.unlock()
                 return downstream.receive(completion: completion)
             }
             
-            self.$state = .awaitingSubscription(.init(config: activeConfig))
+            self._state.value = .awaitingSubscription(.init(config: activeConfig))
             
             guard pause > 0 else {
                 let publisher = activeConfig.publisher
@@ -143,7 +143,7 @@ fileprivate extension Publishers.DelayedRetry {
             scheduler.schedule(after: date, tolerance: tolerance, options: options) { [weak self] in
                 guard let self = self else { return }
                 self._state.lock()
-                guard let config = self.$state.awaitingConfiguration else { return self._state.unlock() }
+                guard let config = self._state.value.awaitingConfiguration else { return self._state.unlock() }
                 let publisher = config.publisher
                 self._state.unlock()
                 publisher.subscribe(self)
