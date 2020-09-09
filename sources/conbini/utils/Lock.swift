@@ -3,20 +3,20 @@ import Darwin
 /// Property Wrapper used to guard a combine conduit state behind a unfair lock.
 ///
 /// - attention: Always make sure to deinitialize the lock.
-@propertyWrapper internal struct Lock<WaitConfiguration,ActiveConfiguration> {
+@propertyWrapper public struct ConduitLock<WaitConfiguration,ActiveConfiguration> {
     /// Performant non-reentrant unfair lock.
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
     /// Generic variable being guarded by the lock.
-    var value: Value
+    public var value: Value
     
-    init(wrappedValue: Value) {
+    public init(wrappedValue: Value) {
         self._lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
         self._lock.initialize(to: os_unfair_lock())
         self.value = wrappedValue
     }
     
     /// Provide thread-safe storage access (within the lock).
-    var wrappedValue: Value {
+    public var wrappedValue: Value {
         get {
             self.lock()
             let content = self.value
@@ -31,33 +31,33 @@ import Darwin
     }
 }
 
-extension Lock {
+extension ConduitLock {
     /// Locks the state to other threads.
-    @_transparent func lock() {
+    public func lock() {
         os_unfair_lock_lock(self._lock)
     }
     
     /// Unlocks the state for other threads.
-    @_transparent func unlock() {
+    public func unlock() {
         os_unfair_lock_unlock(self._lock)
     }
     
-    @_transparent func invalidate() {
+    public func invalidate() {
         self._lock.deinitialize(count: 1)
         self._lock.deallocate()
     }
 }
 
-extension Lock {
+extension ConduitLock {
     /// The type of the value being guarded by the lock.
-    typealias Value = State<WaitConfiguration,ActiveConfiguration>
+    public typealias Value = ConduitState<WaitConfiguration,ActiveConfiguration>
 
     /// Switches the state from `.awaitingSubscription` to `.active` by providing the active configuration parameters.
     /// - If the state is already in `.active`, this function crashes.
     /// - If the state is `.terminated`, no work is performed.
     /// - parameter atomic: Code executed within the unfair locks. Don't call anywhere here; just perform computations.
     /// - returns: The active configuration set after the call of this function.
-    mutating func activate(atomic: (WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
+    public mutating func activate(atomic: (WaitConfiguration)->ActiveConfiguration) -> ActiveConfiguration? {
         let result: ActiveConfiguration?
         
         self.lock()
@@ -74,7 +74,7 @@ extension Lock {
     }
     
     /// Nullify the state and returns the previous state value.
-    @discardableResult mutating func terminate() -> Value {
+    @discardableResult public mutating func terminate() -> Value {
         self.lock()
         let result = self.value
         self.value = .terminated

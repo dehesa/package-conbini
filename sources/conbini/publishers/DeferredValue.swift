@@ -27,7 +27,7 @@ fileprivate extension DeferredValue {
     /// The shadow subscription chain's origin.
     final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<(),_Configuration>
+        @ConduitLock private var state: ConduitState<(),_Configuration>
         
         /// Sets up the guarded state.
         /// - parameter downstream: Downstream subscriber receiving the data from this instance.

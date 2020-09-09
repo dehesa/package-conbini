@@ -30,7 +30,7 @@ fileprivate extension DeferredFuture {
     /// The shadow subscription chain's origin.
     final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<Void,_Configuration>
+        @ConduitLock private var state: ConduitState<Void,_Configuration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
             self.state = .active(_Configuration(downstream: downstream, step: .awaitingExecution(closure)))

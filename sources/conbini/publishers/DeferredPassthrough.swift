@@ -33,7 +33,7 @@ fileprivate extension DeferredPassthrough {
     /// Internal Shadow subscription catching all messages from downstream and forwarding them upstream.
     final class Conduit<Downstream>: Subscription, Subscriber where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
+        @ConduitLock private var state: ConduitState<_WaitConfiguration,_ActiveConfiguration>
         
         /// Designated initializer passing all the needed info (except the upstream subscription).
         init(upstream: PassthroughSubject<Output,Failure>, downstream: Downstream, closure: @escaping Closure) {

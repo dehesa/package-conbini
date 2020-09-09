@@ -35,7 +35,7 @@ fileprivate extension Publishers.HandleEnd {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         /// Enum listing all possible states.
-        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
+        @ConduitLock private var state: ConduitState<_WaitConfiguration,_ActiveConfiguration>
         
         init(downstream: Downstream, closure: @escaping Closure) {
             self.state = .awaitingSubscription(.init(closure: closure, downstream: downstream))

@@ -16,7 +16,7 @@ extension Subscribers {
         /// The closure executed when a completion event is received.
         public private(set) var receiveCompletion: ((Subscribers.Completion<Failure>)->Void)?
         /// The subscriber's state.
-        @Lock private var state: State<Void,_Configuration>
+        @ConduitLock private var state: ConduitState<Void,_Configuration>
         
         /// Designated initializer specifying the number of expected values.
         /// - precondition: `demand` must be greater than zero.

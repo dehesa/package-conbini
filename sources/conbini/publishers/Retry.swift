@@ -47,7 +47,7 @@ fileprivate extension Publishers.DelayedRetry {
         typealias Input = Upstream.Output
         typealias Failure = Upstream.Failure
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
+        @ConduitLock private var state: ConduitState<_WaitConfiguration,_ActiveConfiguration>
         
         init(upstream: Upstream, downstream: Downstream, scheduler: S, tolerance: S.SchedulerTimeType.Stride?, options: S.SchedulerOptions?, intervals: [TimeInterval]) {
             self.state = .awaitingSubscription(

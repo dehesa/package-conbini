@@ -45,7 +45,7 @@ fileprivate extension Publishers.Then {
         typealias Failure = Upstream.Failure
         
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
+        @ConduitLock private var state: ConduitState<_WaitConfiguration,_ActiveConfiguration>
         /// The combine identifier shared with the `DownstreamConduit`.
         let combineIdentifier: CombineIdentifier
         /// The maximum demand requested to the upstream at the same time.
@@ -128,7 +128,7 @@ fileprivate extension Publishers.Then {
         typealias Failure = Downstream.Failure
         
         /// Enum listing all possible conduit states.
-        @Lock private var state: State<_WaitConfiguration,_ActiveConfiguration>
+        @ConduitLock private var state: ConduitState<_WaitConfiguration,_ActiveConfiguration>
         
         /// Designated initializer holding the downstream subscribers.
         /// - parameter downstream: The subscriber receiving values downstream.
