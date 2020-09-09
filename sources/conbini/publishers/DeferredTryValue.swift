@@ -38,7 +38,7 @@ fileprivate extension DeferredTryValue {
         }
         
         deinit {
-            self._state.deinitialize()
+            self._state.invalidate()
         }
         
         func request(_ demand: Subscribers.Demand) {

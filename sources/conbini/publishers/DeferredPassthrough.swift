@@ -42,7 +42,7 @@ fileprivate extension DeferredPassthrough {
         
         deinit {
             self.cancel()
-            self._state.deinitialize()
+            self._state.invalidate()
         }
         
         func receive(subscription: Subscription) {

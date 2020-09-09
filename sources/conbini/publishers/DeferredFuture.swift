@@ -37,7 +37,7 @@ fileprivate extension DeferredFuture {
         }
         
         deinit {
-            self._state.deinitialize()
+            self._state.invalidate()
         }
         
         func request(_ demand: Subscribers.Demand) {

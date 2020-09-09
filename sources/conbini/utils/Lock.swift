@@ -42,7 +42,7 @@ extension Lock {
         os_unfair_lock_unlock(self._lock)
     }
     
-    @_transparent func deinitialize() {
+    @_transparent func invalidate() {
         self._lock.deinitialize(count: 1)
         self._lock.deallocate()
     }

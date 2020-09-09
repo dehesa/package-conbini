@@ -61,7 +61,7 @@ fileprivate extension Publishers.Then {
         
         deinit {
             self.cancel()
-            self._state.deinitialize()
+            self._state.invalidate()
         }
         
         func receive(subscription: Subscription) {
@@ -139,7 +139,7 @@ fileprivate extension Publishers.Then {
         
         deinit {
             self.cancel()
-            self._state.deinitialize()
+            self._state.invalidate()
         }
         
         func receive(subscription: Subscription) {
