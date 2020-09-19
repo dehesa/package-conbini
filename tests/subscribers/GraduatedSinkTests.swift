@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -64,3 +65,4 @@ extension GraduatedSinkTests {
         subscriber.cancel()
     }
 }
+#endif

@@ -15,6 +15,6 @@ Add any other context about the question here.
 
 ## System
 Delete section if not applicable
- - OS: [e.g. macOS 10.15.4, iOS 13.4]
- - Conbini: [e.g. 0.5.2]
+ - OS: [e.g. macOS 11, iOS 14]
+ - Conbini: [e.g. 0.7.0]
    You can check this in your SPM `Package.swift` file (or `Package.resolved` file). Alternatively, go to Xcode's Source Control Navigator (`⌘+2`) and click on `Conbini`.

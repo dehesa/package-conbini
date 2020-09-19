@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -100,3 +101,4 @@ extension DelayedRetryOpTests {
         cancellable.cancel()
     }
 }
+#endif

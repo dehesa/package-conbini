@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -86,3 +87,4 @@ extension DeferredPassthroughTests {
         XCTAssertEqual(.init(values.prefix(upTo: 2)), receivedValues)
     }
 }
+#endif

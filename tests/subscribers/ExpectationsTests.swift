@@ -1,6 +1,6 @@
+#if !os(watchOS)
 import XCTest
 import Conbini
-import ConbiniForTesting
 import Combine
 
 /// Tests the correct behavior of the *expectation* conveniences.
@@ -82,3 +82,4 @@ extension ExpectationsTests {
         XCTAssertEqual(.init(values[0..<2]), subjectEmitted)
     }
 }
+#endif

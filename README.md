@@ -24,7 +24,7 @@ import PackageDescription
 let package = Package(
     /* Your package name, supported platforms, and generated products go here */
     dependencies: [
-        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.6.0")
+        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.7.0")
     ],
     targets: [
         .target(name: /* Your target name here */, dependencies: ["Conbini"])
@@ -39,11 +39,6 @@ let package = Package(
 ```swift
 import Conbini
 ```
-
-The testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
-
--   `import Conbini` includes all code excepts the testing conveniences.
--   `import ConbiniForTesting` includes the testing functionality only.
 
 </p></details>
 </ul>
@@ -371,6 +366,32 @@ It subscribes to a publisher making the running test wait for a single value and
 
 ```swift
 let emittedValue = publisherChain.expectsOne(timeout: 0.8, on: test)
+```
+
+</p></details>
+</ul>
+
+`XCTestCase` has been _extended_ to support the following functionality.
+
+<ul>
+<details><summary><code>wait(seconds:)</code></summary><p>
+
+Locks the receiving test for `interval` amount of seconds.
+
+```swift
+final class CustomTests: XCTestCase {
+    func testSomething() {
+        let subject = PassthroughSubject<Int,Never>()
+        let cancellable = subject.sink { print($0) }
+        
+        let queue = DispatchQueue.main
+        queue.asyncAfter(.now() + 1) { subject.send(1) }
+        queue.asyncAfter(.now() + 2) { subject.send(2) }
+
+        self.wait(seconds: 3)
+        cancellable.cancel()
+    }
+}
 ```
 
 </p></details>

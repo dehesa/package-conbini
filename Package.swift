@@ -8,13 +8,10 @@ let package = Package(
     ],
     products: [
         .library(name: "Conbini", targets: ["Conbini"]),
-        .library(name: "ConbiniForTesting", targets: ["ConbiniForTesting"])
     ],
     dependencies: [],
     targets: [
-        .target(name: "Conbini", dependencies: [], path: "sources/conbini"),
-        .target(name: "ConbiniForTesting", dependencies: [], path: "sources/testing"),
-        .testTarget(name: "ConbiniTests", dependencies: ["Conbini"], path: "tests/conbiniTests"),
-        .testTarget(name: "ConbiniForTestingTests", dependencies: ["ConbiniForTesting"], path: "tests/testingTests")
+        .target(name: "Conbini", dependencies: [], path: "sources"),
+        .testTarget(name: "ConbiniTests", dependencies: ["Conbini"], path: "tests"),
     ]
 )

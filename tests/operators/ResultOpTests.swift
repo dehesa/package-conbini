@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -73,3 +74,4 @@ extension ResultOpTests {
         self.wait(for: [expA], timeout: 0.2)
     }
 }
+#endif
