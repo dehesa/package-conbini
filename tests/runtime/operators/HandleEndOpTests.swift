@@ -1,4 +1,3 @@
-#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -132,4 +131,3 @@ extension HandleEndOpTests {
         cancellable.cancel()
     }
 }
-#endif

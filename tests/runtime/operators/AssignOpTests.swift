@@ -1,4 +1,3 @@
-#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -54,4 +53,3 @@ extension AssignOpTests {
         XCTAssert(objC.value == data.last!)
     }
 }
-#endif

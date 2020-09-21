@@ -1,4 +1,3 @@
-#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -70,4 +69,3 @@ extension BufferTests {
         XCTAssertEqual(input.map { $0 * 4 }, output)
     }
 }
-#endif

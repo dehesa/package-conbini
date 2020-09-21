@@ -24,12 +24,20 @@ import PackageDescription
 let package = Package(
     /* Your package name, supported platforms, and generated products go here */
     dependencies: [
-        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.7.0")
+        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.6.1")
     ],
     targets: [
         .target(name: /* Your target name here */, dependencies: ["Conbini"])
     ]
 )
+```
+
+If you want to use Conbini's [testing](#testing) extension, you need to define the `CONBINI_FOR_TESTING` flag on your SPM targets or testing targets. Conbini testing extensions require `XCTest`, which is not available in runtime on some platforms (such as watchOS), or you may not want to link to such dynamic library (e.g. when building command-line tools).
+
+```swift
+targets: [
+    .testTarget(name: /* Your target name here */, dependencies: ["Conbini"], swiftSettings: [.define("CONBINI_FOR_TESTING")])
+]
 ```
 
 </p></details>
@@ -39,6 +47,11 @@ let package = Package(
 ```swift
 import Conbini
 ```
+
+The testing conveniences depend on [XCTest](https://developer.apple.com/documentation/xctest), which is not available on regular execution. That is why Conbini is offered in two flavors:
+
+-   `import Conbini` includes all code excepts the testing conveniences.
+-   `import ConbiniForTesting` includes the testing functionality only.
 
 </p></details>
 </ul>

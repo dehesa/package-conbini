@@ -20,7 +20,7 @@ A clear and concise description of what you expected to happen.
 
 ## System
  - OS: [e.g. macOS 11, iOS 14]
- - Conbini: [e.g. 0.7.0]
+ - Conbini: [e.g. 0.6.1]
    You can check this in your SPM `Package.swift` file (or `Package.resolved` file). Alternatively, go to Xcode's Source Control Navigator (`⌘+2`) and click on `Conbini`.
 
 ## Additional context

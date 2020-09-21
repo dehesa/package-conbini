@@ -1,4 +1,3 @@
-#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -83,4 +82,3 @@ extension DeferredTryCompleteTests {
         self.wait(for: [exp], timeout: 0.2)
     }
 }
-#endif

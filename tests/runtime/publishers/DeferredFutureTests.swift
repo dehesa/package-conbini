@@ -1,4 +1,3 @@
-#if !os(watchOS)
 import XCTest
 import Conbini
 import Combine
@@ -80,4 +79,3 @@ extension DeferredFutureTests {
         cancellable.cancel()
     }
 }
-#endif
