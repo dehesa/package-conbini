@@ -24,7 +24,7 @@ import PackageDescription
 let package = Package(
     /* Your package name, supported platforms, and generated products go here */
     dependencies: [
-        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.6.1")
+        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.6.2")
     ],
     targets: [
         .target(name: /* Your target name here */, dependencies: ["Conbini"])
@@ -129,6 +129,23 @@ class CustomObject {
 Conbini's `assign(to:onWeak:)` operator points to the given object weakly with the added benefit of cancelling the pipeline when the object is deinitialized.
 
 Conbini also introduces the `assign(to:onUnowned:)` operator which also avoids memory cycles, but uses `unowned` instead.
+
+</p></details>
+
+<details><summary><code>await</code></summary><p>
+
+Wait synchronously for the response of the receiving publisher.
+
+```swift
+let publisher = Just("Hello")
+    .delay(for: 2, scheduler: DispatchQueue.global())
+
+let greeting = publisher.await
+```
+
+The synchronous wait is performed through `DispatchGroup`s. Please, consider where are you using `await`, since the executing queue stops and waits for an answer:
+- Never call this property from `DispatchQueue.main` or any other queue who is performing any background tasks.
+- Awaiting publishers should never process events in the same queue as the executing queue (or the queue will become stalled).
 
 </p></details>
 
