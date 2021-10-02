@@ -4,62 +4,62 @@ import Combine
 ///
 /// This publisher is used at the origin of a publisher chain and it ony executes the passed closure when it receives a request with a demand greater than zero.
 public struct DeferredValue<Output,Failure>: Publisher where Failure:Swift.Error {
-    /// The closure type being store for delayed execution.
-    public typealias Closure = () -> Output
-    /// Deferred closure.
-    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
-    public let closure: Closure
-    
-    /// Creates a publisher which will a value and completes successfully, or just fail depending on the result of the given closure.
-    /// - parameter closure: Closure in charge of generating the value to be emitted.
-    /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
-    @inlinable public init(failure: Failure.Type = Failure.self, closure: @escaping Closure) {
-        self.closure = closure
-    }
-    
-    public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
-        let subscription = Conduit(downstream: subscriber, closure: self.closure)
-        subscriber.receive(subscription: subscription)
-    }
+  /// The closure type being store for delayed execution.
+  public typealias Closure = () -> Output
+  /// Deferred closure.
+  /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
+  public let closure: Closure
+
+  /// Creates a publisher which will a value and completes successfully, or just fail depending on the result of the given closure.
+  /// - parameter closure: Closure in charge of generating the value to be emitted.
+  /// - attention: The closure is kept till a greater-than-zero demand is received (at which point, it is executed and then deleted).
+  @inlinable public init(failure: Failure.Type = Failure.self, closure: @escaping Closure) {
+    self.closure = closure
+  }
+
+  public func receive<S>(subscriber: S) where S:Subscriber, S.Input==Output, S.Failure==Failure {
+    let subscription = _Conduit(downstream: subscriber, closure: self.closure)
+    subscriber.receive(subscription: subscription)
+  }
 }
 
-fileprivate extension DeferredValue {
-    /// The shadow subscription chain's origin.
-    final class Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
-        /// Enum listing all possible conduit states.
-        @ConduitLock private var state: ConduitState<(),_Configuration>
-        
-        /// Sets up the guarded state.
-        /// - parameter downstream: Downstream subscriber receiving the data from this instance.
-        /// - parameter closure: Closure in charge of generating the emitted value.
-        init(downstream: Downstream, closure: @escaping Closure) {
-            self.state = .active(_Configuration(downstream: downstream, closure: closure))
-        }
-        
-        deinit {
-            self._state.invalidate()
-        }
-        
-        func request(_ demand: Subscribers.Demand) {
-            guard demand > 0,
-                  case .active(let config) = self._state.terminate() else { return }
-            
-            _ = config.downstream.receive(config.closure())
-            config.downstream.receive(completion: .finished)
-        }
-        
-        func cancel() {
-            self._state.terminate()
-        }
+private extension DeferredValue {
+  /// The shadow subscription chain's origin.
+  final class _Conduit<Downstream>: Subscription where Downstream:Subscriber, Downstream.Input==Output, Downstream.Failure==Failure {
+    /// Enum listing all possible conduit states.
+    @ConduitLock private var state: ConduitState<(),_Configuration>
+
+    /// Sets up the guarded state.
+    /// - parameter downstream: Downstream subscriber receiving the data from this instance.
+    /// - parameter closure: Closure in charge of generating the emitted value.
+    init(downstream: Downstream, closure: @escaping Closure) {
+      self.state = .active(_Configuration(downstream: downstream, closure: closure))
     }
+
+    deinit {
+      self._state.invalidate()
+    }
+
+    func request(_ demand: Subscribers.Demand) {
+      guard demand > 0,
+            case .active(let config) = self._state.terminate() else { return }
+
+      _ = config.downstream.receive(config.closure())
+      config.downstream.receive(completion: .finished)
+    }
+
+    func cancel() {
+      self._state.terminate()
+    }
+  }
 }
 
-private extension DeferredValue.Conduit {
-    /// Values needed for the subscription's active state.
-    struct _Configuration {
-        /// The downstream subscriber awaiting any value and/or completion events.
-        let downstream: Downstream
-        /// The closure generating the optional value and/or the successful/failure completion.
-        let closure: DeferredValue.Closure
-    }
+private extension DeferredValue._Conduit {
+  /// Values needed for the subscription's active state.
+  struct _Configuration {
+    /// The downstream subscriber awaiting any value and/or completion events.
+    let downstream: Downstream
+    /// The closure generating the optional value and/or the successful/failure completion.
+    let closure: DeferredValue.Closure
+  }
 }
