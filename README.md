@@ -24,7 +24,7 @@ import PackageDescription
 let package = Package(
     /* Your package name, supported platforms, and generated products go here */
     dependencies: [
-        .package(url: "https://github.com/dehesa/Conbini.git", from: "0.6.2")
+        .package(url: "https://github.com/dehesa/package-conbini.git", from: "0.6.2")
     ],
     targets: [
         .target(name: /* Your target name here */, dependencies: ["Conbini"])
